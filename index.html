@@ -1,0 +1,2259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>e-Invoice HSIN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Runtime libraries (loaded from cdnjs; tool degrades gracefully if any is blocked) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{
+  --ink:#14181c; --ink-2:#2b333a; --muted:#5a636b; --faint:#8a929a;
+  --surface:#ffffff; --panel:#f5f7f8; --panel-2:#eef1f3; --line:#dce0e4; --line-2:#c7ccd1;
+  --gold:#e1971a; --gold-deep:#b9760f; --gold-tint:#fdf3df;
+  --ok:#1c8a57; --ok-tint:#e6f4ec; --bad:#cf3d33; --bad-tint:#fbe9e7;
+  --warn:#b87514; --steel:#2c6aa8; --steel-tint:#e8f0f8;
+  --shadow:0 1px 2px rgba(20,24,28,.06),0 6px 20px rgba(20,24,28,.06);
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--panel);
+  -webkit-font-smoothing:antialiased;line-height:1.45;font-size:14px;
+}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit}
+.mono{font-family:var(--mono);font-variant-ligatures:none}
+
+/* ---------- Header ---------- */
+header.app{
+  position:sticky;top:0;z-index:30;background:var(--ink);color:#fff;
+  border-bottom:3px solid var(--gold);
+  display:flex;align-items:center;gap:16px;padding:12px 20px;flex-wrap:wrap;
+}
+.wm{display:flex;align-items:baseline;gap:10px}
+.wm b{font-family:'Space Grotesk';font-weight:700;font-size:19px;letter-spacing:-.01em}
+.wm .spark{color:var(--gold)}
+.wm small{color:#aeb6bd;font-weight:500;letter-spacing:.16em;text-transform:uppercase;font-size:10px}
+.hgrow{flex:1}
+.badge{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:999px;font-weight:600;display:inline-flex;gap:6px;align-items:center}
+.badge.dot::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
+.mode-standalone{background:#22282e;color:#aeb6bd}
+.mode-server{background:rgba(28,138,87,.18);color:#7fdcab}
+.ghost{background:transparent;color:#cdd3d8;border:1px solid #3a424a;border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:500}
+.ghost:hover{border-color:var(--gold);color:#fff}
+
+/* ---------- Layout ---------- */
+main{max-width:1480px;margin:0 auto;padding:20px;display:grid;grid-template-columns:300px minmax(0,1fr) 430px;gap:18px;align-items:start}
+@media(max-width:1280px){main{grid-template-columns:280px minmax(0,1fr)}.col-out{grid-column:1 / -1}}
+@media(max-width:880px){main{grid-template-columns:1fr}.col-mid{order:1}.col-side{order:2}.col-out{order:3}}
+.col-out{position:sticky;top:var(--sticky-top,120px)}
+@media(max-width:880px){.col-out{position:static}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.card + .card{margin-top:16px}
+.card > .hd{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fbfcfc)}
+.card > .hd .ix{font-family:var(--mono);font-size:11px;color:var(--gold-deep);background:var(--gold-tint);border:1px solid #f0dcae;border-radius:6px;padding:2px 7px;font-weight:600}
+.card > .hd h2{margin:0;font-family:'Space Grotesk';font-size:15px;font-weight:600;letter-spacing:-.01em}
+.card > .hd .sub{color:var(--faint);font-size:12px;margin-left:auto}
+.bd{padding:16px}
+.bd.tight{padding:12px 16px}
+
+/* ---------- Source intake ---------- */
+.srcrow{display:flex;flex-wrap:wrap;gap:8px}
+.src{flex:1 1 auto;min-width:120px;border:1px solid var(--line-2);background:#fff;border-radius:10px;padding:10px 12px;text-align:left;display:flex;flex-direction:column;gap:2px;transition:.12s}
+.src:hover{border-color:var(--gold);background:var(--gold-tint)}
+.src.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.src.on .s2{color:#aeb6bd}
+.src .s1{font-weight:600;font-size:13px}
+.src .s2{font-size:11px;color:var(--muted)}
+.src:disabled{opacity:.45;cursor:not-allowed}
+.drop{margin-top:12px;border:1.5px dashed var(--line-2);border-radius:12px;padding:18px;text-align:center;color:var(--muted);background:var(--panel);transition:.12s}
+.drop.hot{border-color:var(--gold);background:var(--gold-tint);color:var(--ink)}
+.drop strong{color:var(--ink)}
+.drop button{margin-top:8px}
+.btn{background:var(--ink);color:#fff;border:0;border-radius:9px;padding:9px 14px;font-weight:600;font-size:13px}
+.btn:hover{background:#000}
+.btn.gold{background:var(--gold);color:#1a1300}
+.btn.gold:hover{background:var(--gold-deep);color:#fff}
+.btn.line{background:#fff;color:var(--ink);border:1px solid var(--line-2)}
+.btn.line:hover{border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:6px 10px;font-size:12px;border-radius:8px}
+textarea.paste{width:100%;min-height:120px;border:1px solid var(--line-2);border-radius:10px;padding:10px;font-family:var(--mono);font-size:12px;resize:vertical;margin-top:10px}
+.status{margin-top:10px;font-size:12.5px;display:none;align-items:flex-start;gap:8px;padding:9px 11px;border-radius:9px}
+.status.show{display:flex}
+.status.ok{background:var(--ok-tint);color:#11603a}
+.status.bad{background:var(--bad-tint);color:#9c2c24}
+.status.work{background:var(--steel-tint);color:#1f4d7a}
+.spin{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;flex:0 0 auto;margin-top:1px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---------- Forms ---------- */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr}}
+.f{display:flex;flex-direction:column;gap:5px}
+.f.col2{grid-column:span 2}
+@media(max-width:560px){.f.col2{grid-column:span 1}}
+label{font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+label .req{color:var(--bad);margin-left:2px}
+input[type=text],input[type=date],input[type=number],select{
+  border:1px solid var(--line-2);border-radius:9px;padding:9px 10px;font-size:13.5px;background:#fff;color:var(--ink);width:100%
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:-1px;border-color:var(--gold)}
+input.data{font-family:var(--mono);letter-spacing:.01em}
+.hint{font-size:11px;color:var(--faint)}
+.section-tog{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.seller-pill{font-family:var(--mono);font-size:11px;color:var(--gold-deep);background:var(--gold-tint);padding:2px 8px;border-radius:6px;border:1px solid #f0dcae}
+
+/* ---------- Items table ---------- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table.items{border-collapse:collapse;width:100%;min-width:760px;font-size:12.5px}
+table.items th{background:var(--panel-2);text-align:left;padding:8px 9px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);white-space:nowrap}
+table.items td{padding:5px 7px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.items tr:last-child td{border-bottom:0}
+table.items input{border:1px solid transparent;background:transparent;padding:6px 6px;border-radius:6px;font-size:12.5px}
+table.items input:hover{border-color:var(--line)}
+table.items input:focus{background:#fff;border-color:var(--gold)}
+table.items .num{text-align:right;font-family:var(--mono)}
+table.items .calc{font-family:var(--mono);text-align:right;color:var(--ink-2);font-weight:500;white-space:nowrap}
+.rmrow{border:0;background:transparent;color:var(--faint);font-size:16px;line-height:1;padding:2px 6px;border-radius:6px}
+.rmrow:hover{color:var(--bad);background:var(--bad-tint)}
+.addrow{margin-top:10px}
+.totals{margin-top:14px;display:flex;justify-content:flex-end}
+.totbox{min-width:300px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.totbox .tr{display:flex;justify-content:space-between;padding:7px 12px;font-size:13px;border-bottom:1px solid var(--line)}
+.totbox .tr:last-child{border-bottom:0}
+.totbox .tr.grand{background:var(--ink);color:#fff;font-weight:700}
+.totbox .tr.grand .v{font-family:var(--mono)}
+.totbox .v{font-family:var(--mono)}
+.totbox .tr.edit{background:var(--gold-tint)}
+.totbox .tr.edit input{width:96px;text-align:right;padding:4px 6px}
+.taxtag{display:inline-flex;gap:6px;align-items:center;font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px}
+.taxtag.igst{background:var(--steel-tint);color:var(--steel)}
+.taxtag.cgst{background:var(--ok-tint);color:var(--ok)}
+
+/* ---------- Validation Gate (signature) ---------- */
+.gate{border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow)}
+.gate .glamp{padding:16px;display:flex;align-items:center;gap:14px;transition:.2s}
+.gate.pass .glamp{background:linear-gradient(135deg,#1c8a57,#157048);color:#fff}
+.gate.fail .glamp{background:linear-gradient(135deg,#cf3d33,#a82d25);color:#fff}
+.gate .ring{width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto}
+.gate .gtxt b{font-family:'Space Grotesk';font-size:18px;font-weight:700;display:block;letter-spacing:-.01em}
+.gate .gtxt span{font-size:12px;opacity:.92}
+.gate .checks{background:#fff;padding:6px 6px}
+.chk{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;font-size:12.5px}
+.chk:hover{background:var(--panel)}
+.chk .ci{width:18px;height:18px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.chk.p .ci{background:var(--ok)} .chk.p{color:var(--ink-2)}
+.chk.f .ci{background:var(--bad)} .chk.f{color:#9c2c24;font-weight:500}
+.chk.w .ci{background:var(--warn)} .chk.w{color:#8a560f}
+.chk .cd{flex:1}
+.chk .cv{font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+/* ---------- JSON preview ---------- */
+.jhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.seg button{background:#fff;border:0;padding:6px 11px;font-size:12px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--ink);color:#fff}
+pre.json{margin:10px 0 0;background:#0f1318;color:#d7dde3;border-radius:10px;padding:13px;font-family:var(--mono);font-size:11.5px;line-height:1.55;max-height:340px;overflow:auto;white-space:pre}
+pre.json .k{color:#e1971a} pre.json .s{color:#8fd1a4} pre.json .n{color:#7fb8e6} pre.json .b{color:#d98f6a}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+/* ---------- Phase 2 ---------- */
+.qbox{display:flex;gap:14px;align-items:flex-start;margin-top:12px;flex-wrap:wrap}
+#qrout{width:128px;height:128px;background:#fff;border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+#qrout canvas,#qrout img{width:118px!important;height:118px!important}
+.qmeta{flex:1;min-width:180px;font-size:12.5px}
+.qmeta .row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.qmeta .row b{color:var(--muted);font-weight:600}
+.qmeta .row span{font-family:var(--mono);text-align:right;word-break:break-all}
+.posrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.posrow select{width:auto}
+footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--faint);font-size:11.5px;text-align:center}
+.kbd{font-family:var(--mono);background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11px}
+.batchbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.batchlist{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow:auto;padding-right:2px}
+.brow{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.brow.bad{border-color:var(--bad);background:var(--bad-tint)}
+.brow .bno{width:20px;height:20px;flex:none;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--muted);background:var(--panel-2);border-radius:6px}
+.brow .bmain{display:flex;flex-direction:column;min-width:0;flex:1}
+.brow .bttl{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .bsub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bok{font-size:11px;font-weight:700;color:var(--ok);background:var(--ok-tint);padding:2px 8px;border-radius:20px;flex:none}
+.bbad{font-size:11px;font-weight:700;color:var(--bad);background:var(--bad-tint);padding:2px 8px;border-radius:20px;flex:none}
+.bedit{font-size:10px;font-weight:700;color:var(--gold-deep);background:var(--gold-tint);padding:2px 7px;border-radius:20px;flex:none}
+.bact{display:flex;gap:5px;flex:none}
+.btn.xs{padding:4px 9px;font-size:11px;border-radius:8px}
+.sumbar{position:sticky;top:var(--hdr-h,58px);z-index:25;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 2px 6px rgba(10,15,20,.05)}
+.sb-inner{max-width:1480px;margin:0 auto;padding:8px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.sb-doc{display:flex;flex-direction:column;line-height:1.15}
+.sb-sp{flex:1}
+.sb-cell{display:flex;flex-direction:column;line-height:1.15;text-align:right;min-width:78px}
+.sb-k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.sb-v{font-size:14px;font-weight:700;color:var(--ink)}
+.sb-total{border-left:2px solid var(--gold);padding-left:14px}
+.sb-total .sb-v{font-size:18px}
+.sb-gate{font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap}
+.sb-gate.ok{color:var(--ok);background:var(--ok-tint)}
+.sb-gate.bad{color:var(--bad);background:var(--bad-tint)}
+.col-side .grid2{grid-template-columns:1fr}
+@media(max-width:560px){.sb-inner{gap:10px;padding:6px 12px}.sb-cell{min-width:62px}.sb-v{font-size:13px}.sb-total .sb-v{font-size:15px}.sb-doc{display:none}}
+.admwrap{position:fixed;inset:0;z-index:100;background:rgba(12,16,20,.55);display:flex;align-items:flex-start;justify-content:center;padding:28px 16px;overflow:auto}
+.admpanel{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.3);width:100%;max-width:880px}
+.admhd{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-family:'Space Grotesk';font-size:15px}
+.admhd b{flex:1}
+.admx{background:none;border:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
+.admbd{padding:18px}
+.admerr{color:var(--bad);font-size:12.5px;min-height:16px;margin:6px 0}
+.admrow{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.admgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.admsec{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel)}
+.admsec h4{margin:0 0 8px;font-family:'Space Grotesk';font-size:13px;color:var(--ink)}
+.admsec .f{margin-bottom:8px}
+.admwide{grid-column:1 / -1}
+.admck{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);padding:3px 0;text-transform:none}
+.admcols{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px}
+.admfoot{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px}
+@media(max-width:680px){.admgrid{grid-template-columns:1fr}.admcols{grid-template-columns:1fr}}
+
+/* ---------- NIC Mock e-Invoice Portal ---------- */
+.portal-card {
+  border-top: 4px solid #1a4f8a;
+  background: var(--surface);
+  position: relative;
+  overflow: hidden;
+}
+.portal-card::before {
+  content: "SAMPLE ONLY • TESTING";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 38px;
+  font-weight: 800;
+  color: rgba(26, 79, 138, 0.05);
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+  z-index: 0;
+  letter-spacing: 0.1em;
+}
+.portal-hd {
+  background: linear-gradient(135deg, #1a4f8a, #0d2c52);
+  color: #fff;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.portal-hd h3 {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.portal-hd small {
+  color: #a4c2e6;
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  margin-left: auto;
+}
+.captcha-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+.captcha-box {
+  background: #f0f4f8;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.captcha-canvas {
+  width: 130px;
+  height: 38px;
+  background: #eef2f7;
+  display: block;
+}
+.btn-refresh {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: #1a4f8a;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.btn-refresh:hover {
+  color: #0d2c52;
+}
+.portal-drop {
+  border: 2px dashed #1a4f8a;
+  background: rgba(26, 79, 138, 0.02);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  transition: 0.12s;
+  cursor: pointer;
+}
+.portal-drop:hover, .portal-drop.hot {
+  background: rgba(26, 79, 138, 0.06);
+  border-color: #0d2c52;
+  color: var(--ink);
+}
+.portal-drop strong {
+  color: #1a4f8a;
+}
+.portal-status-container {
+  margin-top: 10px;
+}
+.portal-btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  align-items: center;
+}
+.portal-btn {
+  background: #1a4f8a;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: 0.1s;
+}
+.portal-btn:hover {
+  background: #0d2c52;
+}
+.portal-btn.logout {
+  background: #fbe9e7;
+  color: var(--bad);
+  border: 1px solid var(--bad-tint);
+  padding: 4px 10px;
+  font-size: 11.5px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+}
+.portal-btn.logout:hover {
+  background: var(--bad-tint);
+}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="wm"><b>e&#8209;Invoice<span class="spark"> HydraSpecma</span></b><small>India · GST IRP</small></div>
+  <div class="hgrow"></div>
+  <span id="modeBadge" class="badge dot mode-standalone">Standalone</span>
+  <button class="ghost" id="btnAdmin">⚙ Admin</button>
+  <button class="ghost" id="btnExport">Save settings</button>
+  <button class="ghost" id="btnImport">Load settings</button>
+  <input type="file" id="fileSettings" accept="application/json" hidden>
+</header>
+<div class="sumbar" id="sumBar">
+  <div class="sb-inner">
+    <div class="sb-doc"><span class="sb-k">Invoice</span><span class="sb-v mono" id="sbDoc">—</span></div>
+    <div class="sb-sp"></div>
+    <div class="sb-cell"><span class="sb-k">Taxable</span><span class="sb-v" id="sbAss">₹0.00</span></div>
+    <div class="sb-cell"><span class="sb-k" id="sbTaxK">IGST</span><span class="sb-v" id="sbTax">₹0.00</span></div>
+    <div class="sb-cell sb-total"><span class="sb-k">Total invoice</span><span class="sb-v" id="sbTot">₹0.00</span></div>
+    <div class="sb-gate ok" id="sbGate">—</div>
+  </div>
+</div>
+
+<main>
+  <!-- SIDEBAR: parties -->
+  <div class="col-side">
+    <div class="card">
+      <div class="hd"><span class="ix">03</span><h2>Seller</h2><span class="seller-pill" style="margin-left:auto">HSIN · prefilled</span></div>
+      <div class="bd">
+        <div class="grid2">
+          <div class="f"><label>GSTIN<span class="req">*</span></label><input type="text" class="data" id="sGstin"></div>
+          <div class="f"><label>State code<span class="req">*</span></label><input type="text" class="data" id="sStcd"></div>
+          <div class="f col2"><label>Legal name<span class="req">*</span></label><input type="text" id="sLgl"></div>
+          <div class="f col2"><label>Trade name</label><input type="text" id="sTrd"></div>
+          <div class="f col2"><label>Address line 1<span class="req">*</span></label><input type="text" id="sA1"></div>
+          <div class="f col2"><label>Address line 2</label><input type="text" id="sA2"></div>
+          <div class="f"><label>Location<span class="req">*</span></label><input type="text" id="sLoc"></div>
+          <div class="f"><label>PIN<span class="req">*</span></label><input type="text" class="data" id="sPin" maxlength="6"></div>
+          <div class="f"><label>Phone</label><input type="text" class="data" id="sPh"></div>
+          <div class="f"><label>Email</label><input type="text" class="data" id="sEm"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><span class="ix">04</span><h2>Buyer</h2><span class="sub">billed to</span></div>
+      <div class="bd">
+        <div class="grid2">
+          <div class="f"><label>GSTIN<span class="req">*</span></label><input type="text" class="data" id="bGstin" placeholder="URP if unregistered"></div>
+          <div class="f"><label>Place of supply (state code)<span class="req">*</span></label><input type="text" class="data" id="bPos" maxlength="2"></div>
+          <div class="f col2"><label>Legal name<span class="req">*</span></label><input type="text" id="bLgl"></div>
+          <div class="f col2"><label>Trade name</label><input type="text" id="bTrd"></div>
+          <div class="f col2"><label>Address line 1<span class="req">*</span></label><input type="text" id="bA1"></div>
+          <div class="f col2"><label>Address line 2</label><input type="text" id="bA2"></div>
+          <div class="f"><label>Location<span class="req">*</span></label><input type="text" id="bLoc"></div>
+          <div class="f"><label>PIN<span class="req">*</span></label><input type="text" class="data" id="bPin" maxlength="6"></div>
+          <div class="f"><label>State code<span class="req">*</span></label><input type="text" class="data" id="bStcd" maxlength="2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><span class="ix">05</span><h2 id="shipTog" class="section-tog" style="cursor:pointer">Ship-to (consignee) <span class="hint" id="shipState" style="margin-left:8px;text-transform:none">— click to enable</span></h2></div>
+      <div class="bd" id="shipBody" style="display:none">
+        <div class="grid2">
+          <div class="f"><label>GSTIN</label><input type="text" class="data" id="hGstin"></div>
+          <div class="f"><label>State code</label><input type="text" class="data" id="hStcd" maxlength="2"></div>
+          <div class="f col2"><label>Legal name</label><input type="text" id="hLgl"></div>
+          <div class="f col2"><label>Address line 1</label><input type="text" id="hA1"></div>
+          <div class="f col2"><label>Address line 2</label><input type="text" id="hA2"></div>
+          <div class="f"><label>Location</label><input type="text" id="hLoc"></div>
+          <div class="f"><label>PIN</label><input type="text" class="data" id="hPin" maxlength="6"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: intake + items -->
+  <div class="col-mid">
+    <div class="card">
+      <div class="hd"><span class="ix">01</span><h2>Source</h2><span class="sub">where the invoice data comes from</span></div>
+      <div class="bd">
+        <div class="srcrow">
+          <button class="src on" data-src="pdf"><span class="s1">PDF invoice</span><span class="s2">extract from text PDF</span></button>
+          <button class="src" data-src="image"><span class="s1">Image / scan</span><span class="s2">OCR a JPG/PNG</span></button>
+          <button class="src" data-src="odata"><span class="s1">D365 OData</span><span class="s2">paste API response</span></button>
+          <button class="src" data-src="pull" id="srcPull" disabled><span class="s1">Pull from D365</span><span class="s2">server mode only</span></button>
+          <button class="src" data-src="manual"><span class="s1">Manual</span><span class="s2">type it in</span></button>
+          <button class="src" data-src="batch"><span class="s1">Batch (many)</span><span class="s2">several files → 1 JSON</span></button>
+        </div>
+
+        <div id="paneFile">
+          <div class="drop" id="drop">
+            <strong id="dropTitle">Drop a Tax invoice PDF here</strong>
+            <div class="hint" id="dropHint">SSRS / text PDFs extract cleanly. Always review the fields before generating.</div>
+            <button class="btn line" id="btnPick" type="button">Choose file</button>
+            <input type="file" id="fileInput" accept="application/pdf,image/*" hidden>
+          </div>
+        </div>
+
+        <div id="paneOdata" style="display:none">
+          <div class="hint">Paste the raw OData response from <span class="mono">/data/HSINEInvoiceLines</span> (the whole <span class="mono">{ "value": [ … ] }</span>, or just the array). Rows are grouped by invoice number.</div>
+          <textarea class="paste" id="odataPaste" placeholder='{ "value": [ { "InvoiceNumber":"HSING/2847/26", "BuyerGstin":"29AAGCK5149P1ZR", ... } ] }'></textarea>
+          <button class="btn sm gold" id="btnOdata">Map response &rarr; form</button>
+        </div>
+
+        <div id="panePull" style="display:none">
+          <div class="grid2">
+            <div class="f col2"><label>Invoice number to pull</label><input type="text" class="data" id="pullInv" placeholder="HSING/2847/26"></div>
+          </div>
+          <button class="btn sm gold" id="btnPull" style="margin-top:10px">Pull from D365</button>
+          <div class="hint" style="margin-top:8px">Calls the local backend (<span class="mono">/api/build-json</span>). Start <span class="mono">app.py</span> and open this page from <span class="mono">http://localhost:5000</span>.</div>
+        </div>
+
+        <div id="paneBatch" style="display:none">
+          <div class="drop" id="batchDrop">
+            <strong>Drop several invoice PDFs / scans here</strong>
+            <div class="hint" id="batchHint">Each file is parsed, validated and queued below. Multi-copy PDFs (Original/Duplicate/Triplicate) are de-duplicated. The seller block (step 03) is applied to every invoice — buyer, items &amp; totals come from each file.</div>
+            <button class="btn line" id="btnBatchPick" type="button">Choose files</button>
+            <input type="file" id="batchFiles" accept="application/pdf,image/*" multiple hidden>
+          </div>
+          <div id="batchWrap" style="display:none;margin-top:12px">
+            <div class="batchbar">
+              <span id="batchCount" class="hint"></span>
+              <span style="flex:1"></span>
+              <label style="text-transform:none;font-size:12px"><input type="checkbox" id="batchInclInvalid"> include invalid</label>
+              <button class="btn sm" id="btnBatchUpdate" style="display:none">Update from form</button>
+              <button class="btn sm" id="btnBatchClear">Clear</button>
+              <button class="btn sm gold" id="btnBatchDl">Download combined JSON</button>
+            </div>
+            <div class="batchlist" id="batchList"></div>
+            <div class="status" id="batchStatus"></div>
+          </div>
+        </div>
+        <div class="status" id="srcStatus"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><span class="ix">02</span><h2>Transaction &amp; document</h2></div>
+      <div class="bd">
+        <div class="grid3">
+          <div class="f"><label>Supply type<span class="req">*</span></label>
+            <select id="supTyp"><option>B2B</option><option>SEZWP</option><option>SEZWOP</option><option>EXPWP</option><option>EXPWOP</option><option>DEXP</option></select></div>
+          <div class="f"><label>Document type<span class="req">*</span></label>
+            <select id="docTyp"><option value="INV">INV — Tax invoice</option><option value="CRN">CRN — Credit note</option><option value="DBN">DBN — Debit note</option></select></div>
+          <div class="f"><label>Reverse charge</label>
+            <select id="regRev"><option value="N">No</option><option value="Y">Yes</option></select></div>
+          <div class="f"><label>Document no.<span class="req">*</span></label><input type="text" class="data" id="docNo" maxlength="16" placeholder="HSING/2847/26"></div>
+          <div class="f"><label>Document date<span class="req">*</span></label><input type="date" id="docDt"></div>
+          <div class="f"><label>IGST on intra-state</label>
+            <select id="igstIntra"><option value="N">No</option><option value="Y">Yes</option></select></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><span class="ix">06</span><h2>Line items</h2><span class="taxtag igst" id="taxModeTag" style="margin-left:auto">IGST</span></div>
+      <div class="bd">
+        <div class="tbl-wrap">
+          <table class="items">
+            <thead><tr>
+              <th>HSN</th><th>Description</th><th>Unit</th><th>Qty</th><th>Unit price</th><th>Disc</th>
+              <th>Taxable</th><th>GST %</th><th id="thT1">IGST</th><th id="thT2" style="display:none">SGST</th><th>Line total</th><th></th>
+            </tr></thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
+        <button class="btn line sm addrow" id="btnAddRow">+ Add line</button>
+
+        <div class="totals">
+          <div class="totbox" id="totBox"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 10: e-Invoice Portal (Simulated Sandbox) -->
+    <div class="card portal-card" style="margin-top:16px" id="portalCard">
+      <div class="portal-hd">
+        <span class="ix" style="background:#123a66; border-color:#205994; color:#fff">10</span>
+        <h3>NIC e-Invoice Portal</h3>
+        <a href="https://einvoice1.gst.gov.in/Invoice/BulkUpload" target="_blank" style="color:#a4c2e6; text-decoration:underline; font-size:11px; margin-left:15px; font-weight:600">Official Upload Portal ↗</a>
+        <small>Simulated NIC Sandbox (Mock)</small>
+      </div>
+      
+      <!-- Watermark/Demo banner (always visible) -->
+      <div style="background:var(--gold-tint); color:var(--gold-deep); border:1px solid #f0dcae; padding:6px 12px; border-radius:10px; font-size:11.5px; font-weight:700; margin:14px 16px 0; text-align:center; letter-spacing:0.04em; text-transform:uppercase">
+        ⚠ Simulated Sandbox • For Testing &amp; Sample Generation Only
+      </div>
+      
+      <!-- Panel A: Login Panel -->
+      <div class="bd" id="portalLoginPanel" style="display:none">
+        <p class="hint" style="margin-top:0">Log in to the government e-Invoice API sandbox portal to enable bulk processing and PDF auto-stamping.</p>
+        <div class="grid2">
+          <div class="f"><label>Username</label><input type="text" id="portalUser" placeholder="HSIN_PORTAL_USER" value="HSIN_PORTAL_USER"></div>
+          <div class="f"><label>Password</label><input type="password" id="portalPw" placeholder="••••••••" value="password123"></div>
+        </div>
+        
+        <div class="f" style="margin-top:10px">
+          <label>Captcha</label>
+          <div class="captcha-container">
+            <div class="captcha-box">
+              <canvas id="portalCaptchaCanvas" class="captcha-canvas" width="130" height="38"></canvas>
+              <button class="btn-refresh" id="portalCaptchaRefresh" type="button" title="Refresh Captcha">⟳</button>
+            </div>
+            <input type="text" id="portalCaptchaIn" placeholder="Enter captcha" style="flex:1; max-width:180px" maxlength="6">
+          </div>
+        </div>
+        
+        <div class="status bad" id="portalLoginErr" style="margin-top:12px; display:none"></div>
+        <div class="portal-btn-row">
+          <button class="portal-btn" id="portalLoginBtn" type="button">Log In</button>
+        </div>
+      </div>
+      
+      <!-- Panel B: OTP Verification Panel -->
+      <div class="bd" id="portalOtpPanel" style="display:none">
+        <p class="hint" style="margin-top:0">A mock OTP has been sent to your registered mobile ending in 8129. Enter the OTP to complete secure verification.</p>
+        <div class="f" style="max-width:240px">
+          <label>Enter OTP <span class="hint" style="text-transform:none">(hint: 123456)</span></label>
+          <input type="text" id="portalOtpIn" class="data" placeholder="••••••" maxlength="6" style="font-size:16px; letter-spacing:0.3em; text-align:center">
+        </div>
+        <div class="status bad" id="portalOtpErr" style="margin-top:12px; display:none"></div>
+        <div class="portal-btn-row">
+          <button class="portal-btn" id="portalOtpVerifyBtn" type="button">Verify &amp; Proceed</button>
+          <button class="btn line sm" id="portalOtpBack" type="button" style="padding:8px 14px">Back</button>
+        </div>
+      </div>
+      
+      <!-- Panel C: Bulk Upload Panel -->
+      <div class="bd" id="portalUploadPanel">
+        <div style="display:flex; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--line); padding-bottom:8px">
+          <span class="badge dot mode-server" style="background:rgba(28,138,87,0.1); color:var(--ok)">API Connection: Connected</span>
+          <button class="portal-btn logout" id="portalLogoutBtn" type="button">✕ Logout</button>
+        </div>
+        
+        <p class="hint" style="margin-top:0">Upload or drop the generated e-Invoice JSON file (array of NIC objects) to instantly generate, sign, stamp, and download final PDFs.</p>
+        
+        <div class="portal-drop" id="portalDropZone">
+          <strong>Drag &amp; Drop e-Invoice JSON file here</strong>
+          <div class="hint" style="margin-top:4px">Accepts single invoice JSON or bulk array.</div>
+          <button class="btn line sm" id="portalPickBtn" type="button" style="margin-top:10px">Choose file</button>
+          <input type="file" id="portalJsonFile" accept="application/json" hidden>
+        </div>
+        
+        <div id="portalInfoBox" style="display:none; margin-top:12px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 14px">
+          <div style="font-size:13px; font-weight:600; color:var(--ink)" id="portalLoadSummary">No file loaded.</div>
+          <div class="hint" style="margin-top:4px" id="portalLoadDetails"></div>
+        </div>
+        
+        <div class="portal-btn-row" id="portalActionRow" style="display:none">
+          <button class="portal-btn" id="portalProcessBtn" type="button" style="background:var(--ok)">Generate Stamped PDFs</button>
+        </div>
+        
+        <div class="status" id="portalStatus" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: OUTPUT -->
+  <div class="col-out">
+    <div class="gate fail" id="gate">
+      <div class="glamp">
+        <div class="ring" id="gateRing">!</div>
+        <div class="gtxt"><b id="gateTitle">Not ready</b><span id="gateSub">Resolve the checks below before uploading.</span></div>
+      </div>
+      <div class="checks" id="checks"></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="hd"><span class="ix">07</span><h2>e-Invoice JSON</h2><span class="sub" id="jsize">0 KB</span></div>
+      <div class="bd">
+        <div class="jhead">
+          <div class="seg">
+            <button class="on" id="segSingle">Single</button>
+            <button id="segBulk">Bulk array</button>
+          </div>
+          <span class="hint">v1.1 · NIC schema</span>
+        </div>
+        <pre class="json" id="jsonView">// fill the form to generate</pre>
+        <div class="actions">
+          <button class="btn sm" id="btnCopy">Copy JSON</button>
+          <button class="btn sm gold" id="btnDl">Download .json</button>
+        </div>
+        <div class="hint" style="margin-top:10px">Upload route: log in to <span class="mono">einvoice1.gst.gov.in</span> &rarr; <strong>E-Invoice &rarr; Bulk Upload</strong> &rarr; choose this file. No API needed.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="hd"><span class="ix">08</span><h2>Phase 2 — stamp IRN + QR</h2></div>
+      <div class="bd">
+        <div class="hint">Paste the <strong>signed response</strong> the portal returns (contains <span class="mono">Irn</span>, <span class="mono">AckNo</span>, <span class="mono">SignedQRCode</span>). The QR is built from <span class="mono">SignedQRCode</span>, not from the IRN.</div>
+        <textarea class="paste" id="respPaste" placeholder='{"AckNo":112420...,"AckDt":"2026-04-07 ...","Irn":"a5c8...","SignedQRCode":"eyJ..."}'></textarea>
+        <button class="btn sm gold" id="btnParseResp">Read response &amp; build QR</button>
+        <div class="qbox">
+          <div id="qrout"><span class="hint">QR</span></div>
+          <div class="qmeta" id="qrMeta"><div class="hint">No IRN loaded yet.</div></div>
+        </div>
+        <div class="posrow">
+          <label style="text-transform:none">QR position</label>
+          <select id="qrPos"><option value="tr">Top-right</option><option value="tl">Top-left</option><option value="br">Bottom-right</option><option value="bl">Bottom-left</option></select>
+          <label style="text-transform:none">on page</label>
+          <select id="qrPage"><option value="0">1</option></select>
+          <label style="text-transform:none"><input type="checkbox" id="stampAll" checked> all pages</label>
+          <button class="btn sm" id="btnStamp" disabled>Stamp PDF &amp; download</button>
+        </div>
+        <div class="status" id="stampStatus"></div>
+        <div class="hint" style="margin-top:8px">Needs the original PDF loaded in Source (step 01). For image sources, load the PDF here too.</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="hd"><span class="ix">09</span><h2>Generate invoice PDF</h2><span style="margin-left:8px;color:var(--gold);font-size:12px;letter-spacing:.08em;text-transform:uppercase">HSIN template</span></div>
+      <div class="bd">
+        <div class="hint">Rebuilds the invoice in the HydraSpecma layout from the fields above — all copies in <strong>one PDF</strong>. IRN + QR are embedded automatically if a signed response is loaded in step 08.</div>
+        <div class="posrow">
+          <label style="text-transform:none">Copies</label>
+          <label style="text-transform:none"><input type="checkbox" class="cpchk" value="Original" checked> Original</label>
+          <label style="text-transform:none"><input type="checkbox" class="cpchk" value="Duplicate" checked> Duplicate</label>
+          <label style="text-transform:none"><input type="checkbox" class="cpchk" value="Triplicate" checked> Triplicate</label>
+          <button class="btn sm gold" id="btnGenPdf">Generate invoice PDF</button>
+        </div>
+        <div class="status" id="genStatus"></div>
+        <div class="hint" style="margin-top:8px">Not a substitute for the IRP-signed copy — generate <em>after</em> stamping the IRN if you want the QR on it. Verify every figure first.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="admwrap" id="adminModal" style="display:none">
+  <div class="admpanel">
+    <div class="admhd"><b>Invoice template · Admin</b><button class="admx" id="admClose">&times;</button></div>
+
+    <div class="admbd" id="admPwView">
+      <p class="hint">Enter the admin password to edit the printed-invoice format and export a customised build.</p>
+      <div class="f"><label>Password</label><input type="password" id="admPw" placeholder="••••••••"></div>
+      <div class="admerr" id="admPwErr"></div>
+      <div class="admrow"><button class="btn gold" id="admUnlock">Unlock</button></div>
+    </div>
+
+    <div class="admbd" id="admEditView" style="display:none">
+      <div class="admgrid">
+        <div class="admsec">
+          <h4>Brand</h4>
+          <div class="f"><label>Logo URL</label><input type="text" id="admLogoUrl"></div>
+          <div class="admrow"><button class="btn sm line" id="admLogoPick">Upload logo file</button><button class="btn sm line" id="admLogoClear">Use URL</button><input type="file" id="admLogoFile" accept="image/*" hidden></div>
+          <img id="admLogoPv" alt="logo" style="max-height:42px;margin-top:8px;display:none">
+          <div class="f"><label>Invoice title</label><input type="text" id="admTitle"></div>
+          <div class="f"><label>Orientation</label><select id="admOrient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div>
+          <div class="f"><label>Accent colour</label><input type="color" id="admAccent" style="width:60px;padding:2px;height:34px"></div>
+        </div>
+
+        <div class="admsec">
+          <h4>Bank details</h4>
+          <div class="f"><label>Bank name</label><input type="text" id="admBankName"></div>
+          <div class="f"><label>Account number</label><input type="text" id="admBankAcc"></div>
+          <div class="f"><label>SWIFT</label><input type="text" id="admSwift"></div>
+          <div class="f"><label>IFSC</label><input type="text" id="admIfsc"></div>
+        </div>
+
+        <div class="admsec">
+          <h4>Defaults &amp; footer</h4>
+          <div class="f"><label>Terms of payment</label><input type="text" id="admTermsPay"></div>
+          <div class="f"><label>Delivery terms</label><input type="text" id="admDelivery"></div>
+          <div class="f"><label>CIN</label><input type="text" id="admCin"></div>
+          <div class="f"><label>Phone</label><input type="text" id="admPhone"></div>
+          <div class="f"><label>Email</label><input type="text" id="admEmail"></div>
+          <div class="f"><label>Website</label><input type="text" id="admWebsite"></div>
+          <div class="f"><label>Signatory line</label><input type="text" id="admSignatory"></div>
+        </div>
+
+        <div class="admsec">
+          <h4>Sections</h4>
+          <label class="admck"><input type="checkbox" id="admShowCopies"> Show copy label (Original/Duplicate/Triplicate)</label>
+          <label class="admck"><input type="checkbox" id="admShowIrn"> Show IRN block</label>
+          <label class="admck"><input type="checkbox" id="admShowQr"> Show QR (when signed)</label>
+          <label class="admck"><input type="checkbox" id="admShowBank"> Show bank details box</label>
+          <label class="admck"><input type="checkbox" id="admShowCert"> Show certification text</label>
+        </div>
+
+        <div class="admsec">
+          <h4>Item table columns</h4>
+          <div class="admcols">
+            <label class="admck"><input type="checkbox" id="admcol_itemNo"> Item number</label>
+            <label class="admck"><input type="checkbox" id="admcol_external"> External</label>
+            <label class="admck"><input type="checkbox" id="admcol_hsn"> HSN codes</label>
+            <label class="admck"><input type="checkbox" id="admcol_unit"> Unit</label>
+            <label class="admck"><input type="checkbox" id="admcol_qty"> Quantity</label>
+            <label class="admck"><input type="checkbox" id="admcol_price"> Sales price</label>
+            <label class="admck"><input type="checkbox" id="admcol_taxComp"> Tax component</label>
+            <label class="admck"><input type="checkbox" id="admcol_valPct"> Value %</label>
+            <label class="admck"><input type="checkbox" id="admcol_taxAmt"> Tax amount</label>
+            <label class="admck"><input type="checkbox" id="admcol_total"> Total amount</label>
+          </div>
+        </div>
+
+        <div class="admsec">
+          <h4>Format Designer (PDF)</h4>
+          <div class="f"><label>Font Family</label>
+            <select id="admFontFamily">
+              <option value="helvetica">Helvetica (Arial-like)</option>
+              <option value="courier">Courier (Monospace)</option>
+              <option value="times">Times (Serif)</option>
+            </select>
+          </div>
+          <div class="grid2" style="margin-top:4px">
+            <div class="f"><label>Title Size</label><input type="number" id="admFontSizeTitle" step="1"></div>
+            <div class="f"><label>Header Size</label><input type="number" id="admFontSizeHeader" step="0.5"></div>
+            <div class="f"><label>Table Head</label><input type="number" id="admFontSizeTableHead" step="0.5"></div>
+            <div class="f"><label>Table Body</label><input type="number" id="admFontSizeTableBody" step="0.5"></div>
+          </div>
+          <div class="grid2" style="margin-top:6px">
+            <div class="f"><label>Left Margin</label><input type="number" id="admMarginLeft" step="1"></div>
+            <div class="f"><label>Right Margin</label><input type="number" id="admMarginRight" step="1"></div>
+            <div class="f"><label>Top Margin</label><input type="number" id="admMarginTop" step="1"></div>
+            <div class="f"><label>Bottom Margin</label><input type="number" id="admMarginBottom" step="1"></div>
+          </div>
+          <div class="grid2" style="margin-top:6px">
+            <div class="f"><label>Cell Padding</label><input type="number" id="admCellPaddingTable" step="0.1"></div>
+            <div class="f"><label>Table Theme</label>
+              <select id="admTableTheme">
+                <option value="plain">Clean (No vertical lines)</option>
+                <option value="grid">Standard Grid</option>
+                <option value="horizontal">Horizontal Lines Only</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid2" style="margin-top:6px">
+            <div class="f"><label>Totals Breakdown</label>
+              <select id="admShowBottomBreakdown">
+                <option value="N">No (Clean like 3156.pdf)</option>
+                <option value="Y">Yes (Show Taxable, IGST, etc.)</option>
+              </select>
+            </div>
+            <div class="f"><label>Bank Offset</label><input type="number" id="admBankOffset" step="5"></div>
+          </div>
+          
+          <h5 style="margin:12px 0 6px;font-size:11px;color:var(--muted);text-transform:uppercase;border-top:1px solid var(--line);padding-top:8px">Column Widths (pt)</h5>
+          <div class="admcols" style="grid-template-columns: repeat(2, 1fr); gap: 4px;">
+            <div class="f"><label style="font-size:9px">Sl No</label><input type="number" id="admw_slNo" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Item No</label><input type="number" id="admw_itemNo" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">External</label><input type="number" id="admw_external" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Description</label><input type="number" id="admw_desc" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">HSN Codes</label><input type="number" id="admw_hsn" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Unit</label><input type="number" id="admw_unit" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Quantity</label><input type="number" id="admw_qty" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Sales Price</label><input type="number" id="admw_price" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Tax Comp</label><input type="number" id="admw_taxComp" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Value %</label><input type="number" id="admw_valPct" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Tax Amt</label><input type="number" id="admw_taxAmt" style="padding:4px;font-size:11px"></div>
+            <div class="f"><label style="font-size:9px">Total Amt</label><input type="number" id="admw_total" style="padding:4px;font-size:11px"></div>
+          </div>
+        </div>
+
+        <div class="admsec admwide">
+          <h4>Notes &amp; terms</h4>
+          <div class="f"><label>Reverse-charge note</label><textarea id="admReverse" rows="2"></textarea></div>
+          <div class="f"><label>Certification text</label><textarea id="admCert" rows="3"></textarea></div>
+          <div class="f"><label>Terms of sale</label><textarea id="admTermsSale" rows="2"></textarea></div>
+        </div>
+      </div>
+
+      <div class="status" id="admStatus"></div>
+      <div class="admfoot">
+        <button class="btn sm gold" id="admSave">Apply</button>
+        <button class="btn sm" id="admPreview">Apply &amp; preview PDF</button>
+        <span style="flex:1"></span>
+        <button class="btn sm line" id="admExportCfg">Export config</button>
+        <button class="btn sm line" id="admImportCfg">Import config</button>
+        <input type="file" id="admCfgFile" accept="application/json" hidden>
+        <button class="btn sm line" id="admReset">Reset defaults</button>
+        <button class="btn sm gold" id="admExportHtml">Export customised HTML</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="note">
+  Built for HydraSpecma · all processing is local in your browser · seller defaults are editable and saved only when you click <span class="kbd">Save settings</span>.
+  Verify every extracted figure — a rejected or wrong IRN carries penalties.
+</footer>
+
+<script>
+"use strict";
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }
+
+/* ============================ STATE ============================ */
+const $=id=>document.getElementById(id);
+const STATE={ items:[], pdfBytes:null, signed:null, batch:[], batchEditIdx:-1, meta:{} };
+
+/* HSIN seller defaults — pulled from the supplied tax invoice. Editable + savable. */
+const SELLER_DEFAULT={
+  sGstin:"33AABCH9436R1Z0", sStcd:"33",
+  sLgl:"Hydraspecma India Private Limited", sTrd:"HydraSpecma India",
+  sA1:"GB 130A Greenbase Industrial and Logistics Parks, Hiranandani Parks Thriveni Nagar",
+  sA2:"Vadakkupattu Village, Kundrathur Taluk",
+  sLoc:"Kancheipuram", sPin:"603204",
+  sPh:"6383688129", sEm:"info.hsin@hydraspecma.com"
+};
+/* Sample buyer + line straight from HSING/2847/26 so the tool opens already-built & green. */
+const SAMPLE={
+  supTyp:"B2B", docTyp:"INV", regRev:"N", igstIntra:"N",
+  docNo:"HSING/2847/26", docDt:"2026-04-07",
+  bGstin:"29AAGCK5149P1ZR", bPos:"29", bStcd:"29",
+  bLgl:"KK Wind Solutions India Private Limited", bTrd:"",
+  bA1:"#44, 3rd Main Rd, 3rd Cross Rd, Industrial Suburb 2nd Stage", bA2:"Yeshwantpur",
+  bLoc:"Bengaluru", bPin:"560022",
+  ship:{ on:true, hGstin:"29AAGCK5149P1ZR", hStcd:"29", hLgl:"KK Wind Solutions India Private Limited",
+    hA1:"Building No. 6, c/o Rajdhani Industrial Park, Plot 285, Road No.7", hA2:"KIADB Avverahalli Industrial Area 4th Phase, Dabaspet, Billanakote",
+    hLoc:"Bangalore Rural", hPin:"562111" },
+  items:[ { hsn:"73071110", desc:"Coupling M22x1.5 EPDM hard anodized aluminium", unit:"PCS",
+            qty:475, price:3953.70, disc:0, rate:18, itemNo:"1060.0023", external:"29107156" } ],
+  meta:{ salesOrder:"SO-001847", custAcct:"0508", requisition:"", termsPay:"Net45", deliveryTerms:"DAP" }
+};
+
+/* ============================ HELPERS ============================ */
+const r2=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
+const fmt=n=>{const x=r2(n||0);return x.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});};
+const GSTIN_RE=/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+function setStatus(el,kind,html,spin){el.className="status show "+kind;el.innerHTML=(spin?'<span class="spin"></span>':'')+'<div>'+html+'</div>';}
+function hideStatus(el){el.className="status";}
+function isInter(){ return ($('igstIntra').value==='Y') ? false /*forces CGST/SGST*/ : (($('sStcd').value||'').trim()!=='' && ($('bPos').value||'').trim()!=='' && $('sStcd').value.trim()!==$('bPos').value.trim()); }
+/* convert yyyy-mm-dd -> dd/MM/yyyy */
+function ddmmyyyy(iso){ if(!iso)return""; const p=iso.split('-'); return p.length===3? `${p[2]}/${p[1]}/${p[0]}`:iso; }
+
+/* ============================ ITEMS TABLE ============================ */
+function blankItem(){return{hsn:"",desc:"",unit:"PCS",qty:0,price:0,disc:0,rate:18};}
+function addItem(it){ STATE.items.push(it||blankItem()); renderItems(); }
+function renderItems(){
+  const inter=isInter();
+  $('thT1').textContent= inter? 'IGST':'CGST';
+  $('thT2').style.display= inter? 'none':'';
+  $('taxModeTag').textContent= inter? 'IGST':'CGST + SGST';
+  $('taxModeTag').className='taxtag '+(inter?'igst':'cgst');
+  const tb=$('itemsBody'); tb.innerHTML='';
+  STATE.items.forEach((it,i)=>{
+    const taxable=r2(it.qty*it.price - (it.disc||0));
+    const tax=r2(taxable*it.rate/100);
+    const igst=inter?tax:0, cg=inter?0:r2(tax/2), sg=inter?0:r2(tax-cg);
+    const line=r2(taxable+(inter?igst:cg+sg));
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><input class="data" style="width:84px" value="${it.hsn}" data-i="${i}" data-k="hsn" placeholder="6–8 dig"></td>
+      <td><input style="width:210px" value="${it.desc.replace(/"/g,'&quot;')}" data-i="${i}" data-k="desc"></td>
+      <td><input class="data" style="width:52px" value="${it.unit}" data-i="${i}" data-k="unit"></td>
+      <td><input class="num" style="width:66px" value="${it.qty}" data-i="${i}" data-k="qty" inputmode="decimal"></td>
+      <td><input class="num" style="width:84px" value="${it.price}" data-i="${i}" data-k="price" inputmode="decimal"></td>
+      <td><input class="num" style="width:60px" value="${it.disc||0}" data-i="${i}" data-k="disc" inputmode="decimal"></td>
+      <td class="calc">${fmt(taxable)}</td>
+      <td><input class="num" style="width:50px" value="${it.rate}" data-i="${i}" data-k="rate" inputmode="decimal"></td>
+      <td class="calc">${fmt(inter?igst:cg)}</td>
+      ${inter?'':`<td class="calc">${fmt(sg)}</td>`}
+      <td class="calc">${fmt(line)}</td>
+      <td><button class="rmrow" data-rm="${i}" title="Remove">&times;</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{
+    const i=+e.target.dataset.i,k=e.target.dataset.k;
+    STATE.items[i][k]=(k==='hsn'||k==='desc'||k==='unit')?e.target.value:parseFloat(e.target.value||0);
+    if(['qty','price','disc','rate'].includes(k)){ refreshCalcsOnly(); } else { /* text */ }
+    build();
+  }));
+  tb.querySelectorAll('.rmrow').forEach(b=>b.addEventListener('click',e=>{STATE.items.splice(+e.target.dataset.rm,1);renderItems();build();}));
+  renderTotals();
+}
+/* lightweight recompute of calc cells without losing focus */
+function refreshCalcsOnly(){
+  const inter=isInter();
+  [...$('itemsBody').children].forEach((tr,i)=>{
+    const it=STATE.items[i]; const taxable=r2(it.qty*it.price-(it.disc||0));
+    const tax=r2(taxable*it.rate/100); const igst=inter?tax:0, cg=inter?0:r2(tax/2), sg=inter?0:r2(tax-cg);
+    const line=r2(taxable+(inter?igst:cg+sg));
+    const calc=tr.querySelectorAll('.calc');
+    calc[0].textContent=fmt(taxable);
+    calc[1].textContent=fmt(inter?igst:cg);
+    if(inter){ calc[2].textContent=fmt(line); } else { calc[2].textContent=fmt(sg); calc[3].textContent=fmt(line); }
+  });
+  renderTotals();
+}
+function totals(){
+  const inter=isInter(); let ass=0,ig=0,cg=0,sg=0;
+  STATE.items.forEach(it=>{ const t=r2(it.qty*it.price-(it.disc||0)); const tax=r2(t*it.rate/100);
+    ass+=t; if(inter)ig+=tax; else{const c=r2(tax/2);cg+=c;sg+=r2(tax-c);} });
+  ass=r2(ass);ig=r2(ig);cg=r2(cg);sg=r2(sg);
+  const calcTot=r2(ass+ig+cg+sg);
+  const rnd = (STATE.rndOverride!=null)? r2(STATE.rndOverride) : 0;
+  const totInv = r2(calcTot+rnd);
+  return {inter,ass,ig,cg,sg,calcTot,rnd,totInv};
+}
+function renderTotals(){
+  const t=totals();
+  const rows=[
+    ['Taxable value',fmt(t.ass)],
+    t.inter?['IGST',fmt(t.ig)]:['CGST',fmt(t.cg)],
+  ];
+  if(!t.inter)rows.push(['SGST',fmt(t.sg)]);
+  let html=rows.map(r=>`<div class="tr"><span>${r[0]}</span><span class="v">${r[1]}</span></div>`).join('');
+  html+=`<div class="tr edit"><span>Round-off</span><span><input class="num data" id="rndIn" value="${(STATE.rndOverride!=null?STATE.rndOverride:0)}" inputmode="decimal"></span></div>`;
+  html+=`<div class="tr grand"><span>Total invoice value</span><span class="v">₹ ${fmt(t.totInv)}</span></div>`;
+  $('totBox').innerHTML=html;
+  $('rndIn').addEventListener('input',e=>{ STATE.rndOverride=parseFloat(e.target.value||0); renderTotals(); build(); });
+}
+
+/* ============================ BUILD JSON ============================ */
+function val(id){return ($(id).value||'').trim();}
+function buildObject(){
+  const t=totals();
+  const seller={Gstin:val('sGstin'),LglNm:val('sLgl'),Addr1:val('sA1'),Loc:val('sLoc'),Pin:Number(val('sPin'))||0,Stcd:val('sStcd')};
+  if(val('sTrd'))seller.TrdNm=val('sTrd'); if(val('sA2'))seller.Addr2=val('sA2');
+  if(val('sPh'))seller.Ph=val('sPh'); if(val('sEm'))seller.Em=val('sEm');
+  const buyer={Gstin:val('bGstin')||'URP',LglNm:val('bLgl'),Pos:val('bPos'),Addr1:val('bA1'),Loc:val('bLoc'),Pin:Number(val('bPin'))||0,Stcd:val('bStcd')};
+  if(val('bTrd'))buyer.TrdNm=val('bTrd'); if(val('bA2'))buyer.Addr2=val('bA2');
+
+  const obj={
+    Version:"1.1",
+    TranDtls:{TaxSch:"GST",SupTyp:val('supTyp'),RegRev:val('regRev'),IgstOnIntra:val('igstIntra')},
+    DocDtls:{Typ:val('docTyp'),No:val('docNo').toUpperCase(),Dt:ddmmyyyy(val('docDt'))},
+    SellerDtls:seller, BuyerDtls:buyer,
+    ItemList:[], ValDtls:{}
+  };
+  if($('shipBody').style.display!=='none' && val('hGstin')){
+    const sh={Gstin:val('hGstin'),LglNm:val('hLgl')||val('bLgl'),Addr1:val('hA1'),Loc:val('hLoc'),Pin:Number(val('hPin'))||0,Stcd:val('hStcd')};
+    if(val('hA2'))sh.Addr2=val('hA2'); obj.ShipDtls=sh;
+  }
+  STATE.items.forEach((it,i)=>{
+    const taxable=r2(it.qty*it.price-(it.disc||0));
+    const tax=r2(taxable*it.rate/100);
+    const igst=t.inter?tax:0, cg=t.inter?0:r2(tax/2), sg=t.inter?0:r2(tax-cg);
+    obj.ItemList.push({
+      SlNo:String(i+1), PrdDesc:it.desc, IsServc:"N", HsnCd:it.hsn,
+      Qty:r2(it.qty), Unit:(it.unit||'NOS').toUpperCase(),
+      UnitPrice:r2(it.price), TotAmt:r2(it.qty*it.price),
+      Discount:r2(it.disc||0), AssAmt:taxable, GstRt:r2(it.rate),
+      IgstAmt:igst, CgstAmt:cg, SgstAmt:sg, CesRt:0, CesAmt:0,
+      TotItemVal:r2(taxable+igst+cg+sg)
+    });
+  });
+  obj.ValDtls={ AssVal:t.ass, CgstVal:t.cg, SgstVal:t.sg, IgstVal:t.ig, CesVal:0,
+    Discount:0, OthChrg:0, RndOffAmt:t.rnd, TotInvVal:t.totInv };
+  return obj;
+}
+
+/* ============================ VALIDATION GATE ============================ */
+function validate(obj){ return checkObject(obj); }
+function renderGate(checks){
+  const box=$('checks'); box.innerHTML='';
+  let fails=0,warns=0;
+  checks.forEach(ck=>{
+    if(!ck.ok && !ck.warn)fails++; if(ck.warn)warns++;
+    const cls= ck.ok?'p':(ck.warn?'w':'f');
+    const ico= ck.ok?'✓':(ck.warn?'!':'✕');
+    const d=document.createElement('div'); d.className='chk '+cls;
+    d.innerHTML=`<span class="ci">${ico}</span><span class="cd">${ck.label}</span><span class="cv">${ck.detail||''}</span>`;
+    box.appendChild(d);
+  });
+  const g=$('gate');
+  if(fails===0){ g.className='gate pass'; $('gateRing').textContent='✓'; $('gateTitle').textContent= warns? 'Ready — with warnings':'Safe to upload';
+    $('gateSub').textContent= warns? warns+' warning(s) to glance at, but no blockers.':'All IRP checks passed. Download and bulk-upload.'; }
+  else{ g.className='gate fail'; $('gateRing').textContent='!'; $('gateTitle').textContent=fails+' blocker'+(fails>1?'s':'');
+    $('gateSub').textContent='Fix the red checks before generating the IRN.'; }
+  $('btnDl').disabled=fails>0; $('btnCopy').disabled=fails>0;
+  return fails===0;
+}
+
+/* ============================ JSON VIEW ============================ */
+let viewMode='single';
+function highlight(j){
+  return j.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+   .replace(/"(\\.|[^"\\])*"(\s*:)?/g,m=>/:\s*$/.test(m)?'<span class="k">'+m+'</span>':'<span class="s">'+m+'</span>')
+   .replace(/\b(-?\d+\.?\d*)\b/g,'<span class="n">$1</span>')
+   .replace(/\b(true|false|null)\b/g,'<span class="b">$1</span>');
+}
+function build(){
+  renderTotals();
+  const obj=buildObject();
+  const checks=validate(obj);
+  renderGate(checks);
+  updateSumBar(totals(), checks.filter(c=>!c.ok&&!c.warn).length);
+  const payload = viewMode==='single'? obj : [obj];
+  const txt=JSON.stringify(payload,null,2);
+  $('jsonView').innerHTML=highlight(txt);
+  const kb=(new Blob([JSON.stringify(payload)]).size/1024).toFixed(1);
+  $('jsize').textContent=kb+' KB';
+  STATE.lastJson=txt;
+}
+
+/* ============================ FORM <-> SAMPLE/SETTINGS ============================ */
+function fillSeller(s){ for(const k in s) if($(k)) $(k).value=s[k]; }
+function applySample(){
+  fillSeller(SELLER_DEFAULT);
+  $('supTyp').value=SAMPLE.supTyp;$('docTyp').value=SAMPLE.docTyp;$('regRev').value=SAMPLE.regRev;$('igstIntra').value=SAMPLE.igstIntra;
+  $('docNo').value=SAMPLE.docNo;$('docDt').value=SAMPLE.docDt;
+  ['bGstin','bPos','bStcd','bLgl','bTrd','bA1','bA2','bLoc','bPin'].forEach(k=>$(k).value=SAMPLE[k]||'');
+  // ship
+  setShip(SAMPLE.ship.on);
+  ['hGstin','hStcd','hLgl','hA1','hA2','hLoc','hPin'].forEach(k=>$(k).value=SAMPLE.ship[k]||'');
+  STATE.items=SAMPLE.items.map(x=>({...x})); STATE.rndOverride=0.15;
+  STATE.meta=SAMPLE.meta?{...SAMPLE.meta}:{};
+  renderItems(); build();
+}
+function setShip(on){ $('shipBody').style.display=on?'':'none'; $('shipState').textContent= on?'— included':'— click to enable'; }
+
+/* settings export/import (replaces localStorage for portability) */
+$('btnExport').onclick=()=>{
+  const s={}; Object.keys(SELLER_DEFAULT).forEach(k=>s[k]=val(k));
+  const blob=new Blob([JSON.stringify({seller:s},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='forge-settings.json';a.click();
+};
+$('btnImport').onclick=()=>$('fileSettings').click();
+$('fileSettings').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{try{const o=JSON.parse(rd.result);if(o.seller)fillSeller(o.seller);build();}catch(_){alert('Could not read settings file.');}};rd.readAsText(f);};
+
+/* ============================ SOURCE SWITCHING ============================ */
+let curSrc='pdf';
+document.querySelectorAll('.src').forEach(b=>b.addEventListener('click',()=>{
+  if(b.disabled)return;
+  document.querySelectorAll('.src').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  curSrc=b.dataset.src; hideStatus($('srcStatus'));
+  $('paneFile').style.display=(curSrc==='pdf'||curSrc==='image')?'':'none';
+  $('paneOdata').style.display=curSrc==='odata'?'':'none';
+  $('panePull').style.display=curSrc==='pull'?'':'none';
+  $('paneBatch').style.display=curSrc==='batch'?'':'none';
+  if(curSrc==='pdf'){ $('dropTitle').textContent='Drop a Tax invoice PDF here'; $('fileInput').accept='application/pdf'; $('dropHint').textContent='SSRS / text PDFs extract cleanly. Always review fields before generating.'; }
+  if(curSrc==='image'){ $('dropTitle').textContent='Drop an invoice image (JPG/PNG)'; $('fileInput').accept='image/*'; $('dropHint').textContent='OCR runs in-browser. Numbers can misread — review every figure.'; }
+}));
+
+/* drag & drop + pick */
+const drop=$('drop');
+$('btnPick').onclick=()=>$('fileInput').click();
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)handleFile(f);});
+$('fileInput').onchange=e=>{const f=e.target.files[0];if(f)handleFile(f);};
+
+async function handleFile(f){
+  const isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name);
+  if(isPdf){
+    const buf=await f.arrayBuffer(); STATE.pdfBytes=buf.slice(0);
+    setStatus($('srcStatus'),'work','Reading PDF text…',true);
+    try{ const text=await pdfText(buf); applyExtraction(parseInvoiceText(text),'PDF'); }
+    catch(err){ setStatus($('srcStatus'),'bad','Could not read this PDF ('+err.message+'). Try the Image/OCR source or enter manually.'); }
+  }else{
+    setStatus($('srcStatus'),'work','Running OCR (first run downloads the engine)…',true);
+    try{ const text=await ocrImage(f); applyExtraction(parseInvoiceText(text),'OCR'); }
+    catch(err){ setStatus($('srcStatus'),'bad','OCR unavailable here ('+err.message+'). Enter the fields manually — seller is already filled.'); }
+  }
+}
+
+/* ---- PDF text extraction with line reconstruction ---- */
+async function pdfText(buf){
+  if(!window.pdfjsLib) throw new Error('pdf.js not loaded');
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  // populate page selector for stamping
+  const sel=$('qrPage'); sel.innerHTML=''; for(let p=1;p<=pdf.numPages;p++){const o=document.createElement('option');o.value=p-1;o.textContent=p;sel.appendChild(o);}
+  let out='';
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p); const tc=await page.getTextContent();
+    const rows={};
+    tc.items.forEach(it=>{ const y=Math.round(it.transform[5]); (rows[y]=rows[y]||[]).push({x:it.transform[4],s:it.str}); });
+    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=rows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    });
+    out+='\n';
+  }
+  return out;
+}
+async function ocrImage(f){
+  if(!window.Tesseract) throw new Error('OCR engine not loaded');
+  const url=URL.createObjectURL(f);
+  const {data}=await Tesseract.recognize(url,'eng');
+  URL.revokeObjectURL(url); return data.text;
+}
+
+/* ---- anchor parser tuned to the HSIN Tax invoice layout (multi-line, multi-copy) ---- */
+const num=s=>parseFloat(String(s).replace(/,/g,''))||0;
+const GST_RATES=[0,0.1,0.25,1,1.5,3,5,6,7.5,12,18,28];
+const nearestGstRate=x=>GST_RATES.reduce((a,b)=>Math.abs(b-x)<Math.abs(a-x)?b:a,18);
+const UNIT_RE=/^(pcs|nos|kgs?|mtr|mtrs|set|sets|box|bag|ea|each|ltr|ltrs|no|nos\.|pac|pkt|unt|gms?|ton|tns|roll|rolls|dz|dozen|pair|prs|sqm|cbm|num)$/i;
+function dedupeRepeat(s){ // collapse side-by-side duplicated columns: "ABC ABC" -> "ABC"
+  s=s.replace(/\s+/g,' ').trim();
+  const cut=Math.floor(s.length/2);
+  if(s.length>6 && s.slice(0,cut).trim()===s.slice(s.length-cut).trim()) return s.slice(0,cut).trim();
+  return s;
+}
+function extractParty(T,startRe,stopRe){
+  const lines=T.split('\n').map(s=>dedupeRepeat(s)).filter(Boolean);
+  const i=lines.findIndex(l=>startRe.test(l)); if(i<0)return null;
+  const blk=[];
+  for(let j=i+1;j<lines.length && j<i+14;j++){ const L=lines[j]; if(stopRe.test(L))break; if(L)blk.push(L); }
+  if(!blk.length)return null;
+  const out={name:dedupeRepeat(blk[0])};
+  const pi=blk.findIndex(l=>/\b\d{6}\b/.test(l));
+  if(pi>=0){ const mm=blk[pi].match(/^(.*?)[, ]*\b(\d{6})\b/);
+    out.loc=((mm&&mm[1])||'').replace(/[,\d]+$/,'').replace(/,+$/,'').trim(); out.pin=mm?mm[2]:'';
+    out.addr=blk.slice(1,pi).join(', ').replace(/,\s*,/g,',').replace(/\s+,/g,',').trim(); }
+  else { out.addr=blk.slice(1,4).join(', '); }
+  return out;
+}
+function parseInvoiceText(text){
+  const T=text.replace(/\u00a0/g,' ');
+  const lines=T.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const r={items:[]};
+  const gstins=[...T.matchAll(/[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]/g)].map(m=>m[0]);
+  r.sellerGstin=gstins.find(g=>g.startsWith('33'))||gstins[0];
+  r.buyerGstin=gstins.find(g=>g!==r.sellerGstin)||'';
+  const inv=T.match(/\bHSIN[GP]\/\d+\/\d+\b/i)||T.match(/\b[A-Z]{3,6}\/\d{2,6}\/\d{2,4}\b/);
+  if(inv)r.docNo=inv[0].toUpperCase();
+  const dm=T.match(/Date\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i)||T.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if(dm)r.docDt=`${dm[3]}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}`;
+  const sc=[...T.matchAll(/State\s*code\s*[:#]?\s*(\d{1,2})/gi)].map(m=>m[1]);
+  if(sc.length){ r.buyerPos=sc[0]; r.buyerStcd=sc[0]; }
+  const g1=re=>{ const m=T.match(re); return m?m[1].trim():''; };
+  r.meta={ salesOrder:g1(/Sales order\s+([A-Za-z0-9\-\/]+)/i), custAcct:g1(/Customer account\s+([A-Za-z0-9\-\/]+)/i), requisition:g1(/Requisition\s+([A-Za-z0-9\-\/]+)/i), termsPay:g1(/Terms of payment\s+([A-Za-z0-9]+)/i), deliveryTerms:g1(/Delivery terms\s+([A-Za-z0-9]+)/i) };
+  // addresses (best effort — verify after)
+  const STOP_P=/Registration|Place of supply|^State\b|GSTIN|CIN|Hydraspecma|Tax invoice|Sales order|Customer|Requisition|HSN codes/i;
+  const buyer=extractParty(T,/Billed to|Retails of Receiver/i,STOP_P);
+  const ship =extractParty(T,/Consignee|Shipped to/i,STOP_P);
+  if(buyer)r.buyer=buyer; if(ship)r.ship=ship;
+
+  const STOP=/Total amount|Bank|IFSC|SWIFT|Terms|Note:|Page |HSN codes|Sales order|Customer account|Requisition|Place of supply|Registration|State code|Original|Duplicate|Triplicate|Tax invoice|GSTIN|CIN|Hydraspecma|KK Wind|Building No|Industrial|KIADB|Dabaspet|Billanakote|Bangalore|Contact|Telephone|^India$|Authorised|Certified|TERMS|Ph\./i;
+  const items=[]; let cur=null;
+  for(const L of lines){
+    const m=L.match(/^(\d{1,3})\s+(.+?)\s+(\d{6,8})\s+([A-Za-z.]+)\s+([\d,]+\.\d{1,3})\s+([\d,]+\.\d{1,5})\s+([\d,]+\.\d{2})$/);
+    if(m && UNIT_RE.test(m[4])){
+      if(cur)items.push(cur);
+      const mid=m[2].trim().split(/\s+/);
+      let _itemNo='',_external='',desc;
+      if(mid.length>2){ _itemNo=mid[0]; _external=mid[1]; desc=mid.slice(2).join(' '); } else { desc=mid.join(' '); }
+      cur={slno:+m[1],hsn:m[3],unit:m[4].toUpperCase(),qty:num(m[5]),price:num(m[6]),lineTotal:num(m[7]),desc,itemNo:_itemNo,external:_external,taxAmt:0,comp:null};
+      continue;
+    }
+    const tm=L.match(/\b(IGST|CGST|SGST|UTGST)\b.*?([\d,]+\.\d{2})\s*$/i);
+    if(tm && cur){ cur.taxAmt+=num(tm[2]); cur.comp=(tm[1].toUpperCase()==='IGST')?'IGST':'INTRA'; continue; }
+    if(cur && !cur.taxAmt && !STOP.test(L) && !/^\d{1,3}\s/.test(L) && !/^[\d,]+\.\d{2}/.test(L) && L.length<70){ cur.desc+=' '+L; }
+  }
+  if(cur)items.push(cur);
+  items.forEach(it=>{ const taxable=r2(it.qty*it.price);
+    it.rate=(it.taxAmt&&taxable)?nearestGstRate(it.taxAmt/taxable*100):18; it.inter=it.comp!=='INTRA'; });
+  // dedupe Original/Duplicate/Triplicate copies by signature
+  const seen=new Set(); const uniq=[];
+  items.forEach(it=>{ const sig=it.slno+'|'+it.hsn+'|'+it.qty+'|'+it.price; if(!seen.has(sig)){seen.add(sig);uniq.push(it);} });
+  uniq.sort((a,b)=>a.slno-b.slno);
+  r.items=uniq.map(it=>({hsn:it.hsn,desc:it.desc.replace(/\s+/g,' ').trim(),unit:it.unit,qty:it.qty,price:it.price,disc:0,rate:it.rate,itemNo:it.itemNo||'',external:it.external||''}));
+  r.copies=items.length>uniq.length?Math.round(items.length/uniq.length):1;
+  if(uniq.length)r.inter=uniq[0].inter;
+  return r;
+}
+function applyExtraction(x,how){
+  if(x.sellerGstin)$('sGstin').value=x.sellerGstin;
+  if(x.buyerGstin)$('bGstin').value=x.buyerGstin;
+  if(x.docNo)$('docNo').value=x.docNo;
+  if(x.docDt)$('docDt').value=x.docDt;
+  if(x.buyerPos){$('bPos').value=x.buyerPos;$('bStcd').value=x.buyerStcd||x.buyerPos;}
+  if(x.buyer){ if(x.buyer.name)$('bLgl').value=x.buyer.name; if(x.buyer.addr)$('bA1').value=x.buyer.addr; if(x.buyer.loc)$('bLoc').value=x.buyer.loc; if(x.buyer.pin)$('bPin').value=x.buyer.pin; $('bA2').value=''; }
+  if(x.ship){ setShip(true); if(x.ship.name)$('hLgl').value=x.ship.name; if(x.ship.addr)$('hA1').value=x.ship.addr; if(x.ship.loc)$('hLoc').value=x.ship.loc; if(x.ship.pin)$('hPin').value=x.ship.pin; if(x.buyerStcd)$('hStcd').value=x.buyerStcd; if(x.buyerGstin)$('hGstin').value=x.buyerGstin; $('hA2').value=''; }
+  if(x.items&&x.items.length){ STATE.items=x.items.map(it=>({hsn:it.hsn,desc:it.desc,unit:it.unit,qty:it.qty,price:it.price,disc:it.disc||0,rate:it.rate,itemNo:it.itemNo||'',external:it.external||''})); }
+  STATE.meta=x.meta||{};
+  renderItems();
+  { const t=totals(); STATE.rndOverride=r2(Math.round(t.calcTot)-t.calcTot); } // GST round-to-rupee
+  renderItems(); build();
+  const miss=[]; if(!x.buyerGstin)miss.push('buyer GSTIN'); if(!x.items||!x.items.length)miss.push('line items'); if(!x.docNo)miss.push('invoice no');
+  const cp=x.copies>1?` ${x.copies} copies detected, merged to ${x.items.length} unique line(s).`:'';
+  setStatus($('srcStatus'), miss.length?'bad':'ok',
+    `${how} extraction done.${cp} `+(miss.length?'<strong>Review &amp; fill:</strong> '+miss.join(', ')+'. ':'')+'<strong>Verify line items &amp; addresses</strong> against the invoice before downloading.');
+}
+
+/* ---- OData paste mapping ---- */
+$('btnOdata').onclick=()=>{
+  let raw=$('odataPaste').value.trim(); if(!raw){setStatus($('srcStatus'),'bad','Paste the OData response first.');return;}
+  let arr; try{ const o=JSON.parse(raw); arr=Array.isArray(o)?o:(o.value||o.Lines||[o]); }catch(e){setStatus($('srcStatus'),'bad','Invalid JSON: '+e.message);return;}
+  if(!arr.length){setStatus($('srcStatus'),'bad','No rows found.');return;}
+  mapEntityRows(arr); setStatus($('srcStatus'),'ok',arr.length+' line(s) mapped from OData. Review and download.');
+};
+/* maps the HSINEInvoiceLines entity grain (one row per line, header repeated) */
+function mapEntityRows(rows){
+  const h=rows[0];
+  const set=(id,v)=>{ if($(id)&&v!=null&&v!=='') $(id).value=v; };
+  set('docNo',h.InvoiceNumber); if(h.InvoiceDate){ set('docDt',(''+h.InvoiceDate).slice(0,10)); }
+  set('supTyp',h.SupplyType||'B2B'); set('regRev',(h.ReverseCharge==='Yes'||h.ReverseCharge==='Y')?'Y':'N');
+  set('sGstin',h.SellerGstin);set('sStcd',h.SellerStateCode);set('sLgl',h.SellerLegalName);set('sTrd',h.SellerTradeName);
+  set('sA1',h.SellerAddress1);set('sA2',h.SellerAddress2);set('sLoc',h.SellerLocation);set('sPin',h.SellerPincode);
+  set('bGstin',h.BuyerGstin);set('bPos',h.BuyerPlaceOfSupplyStateCode||h.BuyerStateCode);set('bStcd',h.BuyerStateCode);
+  set('bLgl',h.BuyerLegalName);set('bTrd',h.BuyerTradeName);set('bA1',h.BuyerAddress1);set('bA2',h.BuyerAddress2);
+  set('bLoc',h.BuyerLocation);set('bPin',h.BuyerPincode);
+  if(h.ShipToGstin){ setShip(true); set('hGstin',h.ShipToGstin);set('hStcd',h.ShipToStateCode);set('hLgl',h.ShipToLegalName);
+    set('hA1',h.ShipToAddress1);set('hA2',h.ShipToAddress2);set('hLoc',h.ShipToLocation);set('hPin',h.ShipToPincode);}
+  STATE.items=rows.map(rw=>({ hsn:String(rw.HsnCode||''), desc:rw.ProductDescription||'', unit:(rw.Unit||'PCS').toUpperCase(),
+    qty:Number(rw.Quantity||0), price:Number(rw.UnitPrice||0), disc:Number(rw.Discount||0), rate:Number(rw.GstRate||0) }));
+  renderItems(); build();
+}
+
+/* ---- Pull from D365 (server mode) ---- */
+$('btnPull').onclick=async()=>{
+  const inv=$('pullInv').value.trim()||$('docNo').value.trim();
+  if(!inv){setStatus($('srcStatus'),'bad','Enter an invoice number to pull.');return;}
+  setStatus($('srcStatus'),'work','Calling backend for '+inv+'…',true);
+  try{
+    const res=await fetch('/api/build-json?invoice='+encodeURIComponent(inv));
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(data.rows) mapEntityRows(data.rows); else if(data.object) loadFromObject(data.object);
+    setStatus($('srcStatus'),'ok','Pulled '+inv+' from D365. Review and download.');
+  }catch(e){ setStatus($('srcStatus'),'bad','Backend not reachable ('+e.message+'). Run app.py and open from localhost.'); }
+};
+function loadFromObject(o){ /* load a prebuilt v1.1 object back into the form (optional) */
+  $('docNo').value=o.DocDtls?.No||''; if(o.DocDtls?.Dt){const p=o.DocDtls.Dt.split('/');$('docDt').value=`${p[2]}-${p[1]}-${p[0]}`;}
+  $('supTyp').value=o.TranDtls?.SupTyp||'B2B'; $('regRev').value=o.TranDtls?.RegRev||'N';
+  const s=o.SellerDtls||{},b=o.BuyerDtls||{};
+  $('sGstin').value=s.Gstin||'';$('sStcd').value=s.Stcd||'';$('sLgl').value=s.LglNm||'';$('sA1').value=s.Addr1||'';$('sLoc').value=s.Loc||'';$('sPin').value=s.Pin||'';
+  $('bGstin').value=b.Gstin||'';$('bPos').value=b.Pos||'';$('bStcd').value=b.Stcd||'';$('bLgl').value=b.LglNm||'';$('bA1').value=b.Addr1||'';$('bLoc').value=b.Loc||'';$('bPin').value=b.Pin||'';
+  STATE.items=(o.ItemList||[]).map(it=>({hsn:it.HsnCd,desc:it.PrdDesc,unit:it.Unit,qty:it.Qty,price:it.UnitPrice,disc:it.Discount||0,rate:it.GstRt}));
+  STATE.rndOverride=o.ValDtls?.RndOffAmt||0; renderItems(); build();
+}
+
+/* ============================ ACTIONS ============================ */
+$('segSingle').onclick=()=>{viewMode='single';$('segSingle').classList.add('on');$('segBulk').classList.remove('on');build();};
+$('segBulk').onclick=()=>{viewMode='bulk';$('segBulk').classList.add('on');$('segSingle').classList.remove('on');build();};
+$('btnCopy').onclick=()=>{navigator.clipboard.writeText(STATE.lastJson).then(()=>{$('btnCopy').textContent='Copied ✓';setTimeout(()=>$('btnCopy').textContent='Copy JSON',1400);});};
+$('btnDl').onclick=()=>{
+  const obj=buildObject(); const payload=viewMode==='single'?obj:[obj];
+  const name=(val('docNo')||'einvoice').replace(/[^A-Za-z0-9._-]+/g,'_')+(viewMode==='bulk'?'_bulk':'')+'.json';
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+};
+$('btnAddRow').onclick=()=>addItem();
+
+/* transaction inputs rebuild */
+['supTyp','docTyp','regRev','igstIntra','docNo','docDt','sGstin','sStcd','sLgl','sTrd','sA1','sA2','sLoc','sPin','sPh','sEm',
+ 'bGstin','bPos','bStcd','bLgl','bTrd','bA1','bA2','bLoc','bPin','hGstin','hStcd','hLgl','hA1','hA2','hLoc','hPin']
+ .forEach(id=>{ const el=$(id); if(el)el.addEventListener('input',()=>{ if(['sStcd','bPos','igstIntra'].includes(id))renderItems(); build(); }); });
+$('shipTog').onclick=()=>{ const on=$('shipBody').style.display==='none'; setShip(on); build(); };
+
+/* ============================ PHASE 2 — QR + STAMP ============================ */
+$('btnParseResp').onclick=()=>{
+  let raw=$('respPaste').value.trim(); if(!raw){setStatus($('stampStatus'),'bad','Paste the signed response first.');return;}
+  let o; try{ o=JSON.parse(raw); }catch(e){ // sometimes portal wraps in {success,result}
+    setStatus($('stampStatus'),'bad','Invalid JSON: '+e.message);return; }
+  o = Array.isArray(o)? o[0] : (o.result||o.data||o);
+  const irn=o.Irn||o.irn, qr=o.SignedQRCode||o.signedQRCode||o.SignedQrCode;
+  if(!irn||!qr){ setStatus($('stampStatus'),'bad','Response is missing Irn / SignedQRCode.');return; }
+  STATE.signed={irn,qr,ackNo:o.AckNo||o.ackNo||'',ackDt:o.AckDt||o.ackDt||'',ewb:o.EwbNo||''};
+  $('qrout').innerHTML=''; new QRCode($('qrout'),{text:qr,width:118,height:118,correctLevel:QRCode.CorrectLevel.M});
+  $('qrMeta').innerHTML=`
+    <div class="row"><b>IRN</b><span>${irn.slice(0,28)}…</span></div>
+    <div class="row"><b>Ack no.</b><span>${STATE.signed.ackNo||'—'}</span></div>
+    <div class="row"><b>Ack date</b><span>${STATE.signed.ackDt||'—'}</span></div>
+    ${STATE.signed.ewb?`<div class="row"><b>EWB</b><span>${STATE.signed.ewb}</span></div>`:''}`;
+  $('btnStamp').disabled = !STATE.pdfBytes;
+  setStatus($('stampStatus'),'ok', STATE.pdfBytes? 'QR built. Choose a position and stamp the PDF.' : 'QR built. Load the original PDF in step 01 to enable stamping.');
+};
+async function qrPngBytes(text){
+  const tmp=document.createElement('div'); new QRCode(tmp,{text,width:300,height:300,correctLevel:QRCode.CorrectLevel.M});
+  await new Promise(r=>setTimeout(r,60));
+  const cv=tmp.querySelector('canvas'); const dataUrl=cv.toDataURL('image/png');
+  return Uint8Array.from(atob(dataUrl.split(',')[1]),c=>c.charCodeAt(0));
+}
+$('btnStamp').onclick=async()=>{
+  if(!STATE.signed||!STATE.pdfBytes){return;}
+  setStatus($('stampStatus'),'work','Stamping PDF…',true);
+  try{
+    const {PDFDocument,rgb,StandardFonts}=PDFLib;
+    const doc=await PDFDocument.load(STATE.pdfBytes);
+    const pages=doc.getPages();
+    const font=await doc.embedFont(StandardFonts.Courier);
+    const png=await doc.embedPng(await qrPngBytes(STATE.signed.qr));
+    const qs=96, m=24, pos=$('qrPos').value;
+    const targets = $('stampAll').checked ? pages.map((_,i)=>i) : [Math.min(+$('qrPage').value,pages.length-1)];
+    targets.forEach(pi=>{
+      const page=pages[pi]; const {width,height}=page.getSize();
+      let qx=width-qs-m, qy=height-qs-m;
+      if(pos==='tl'){qx=m;qy=height-qs-m;} if(pos==='br'){qx=width-qs-m;qy=m;} if(pos==='bl'){qx=m;qy=m;}
+      page.drawImage(png,{x:qx,y:qy,width:qs,height:qs});
+      const ty=(pos[0]==='t')? qy-12 : qy+qs+4;
+      page.drawText('IRN: '+STATE.signed.irn,{x:m,y:Math.max(8,ty),size:6.5,font,color:rgb(0.08,0.09,0.10),maxWidth:width-2*m});
+      page.drawText('Ack: '+STATE.signed.ackNo+'  '+(STATE.signed.ackDt||''),{x:m,y:Math.max(2,ty-10),size:6.5,font,color:rgb(0.08,0.09,0.10)});
+    });
+    const out=await doc.save();
+    const blob=new Blob([out],{type:'application/pdf'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(val('docNo')||'invoice').replace(/[^A-Za-z0-9._-]+/g,'_')+'_IRN.pdf';a.click();
+    setStatus($('stampStatus'),'ok','Stamped '+targets.length+' page(s). Downloaded.');
+  }catch(e){ setStatus($('stampStatus'),'bad','Stamp failed: '+e.message); }
+};
+
+/* ============================ GENERATE INVOICE PDF (HSIN template) ============================ */
+const STATE_NAMES={'01':'Jammu & Kashmir','02':'Himachal Pradesh','03':'Punjab','04':'Chandigarh','05':'Uttarakhand','06':'Haryana','07':'Delhi','08':'Rajasthan','09':'Uttar Pradesh','10':'Bihar','11':'Sikkim','12':'Arunachal Pradesh','13':'Nagaland','14':'Manipur','15':'Mizoram','16':'Tripura','17':'Meghalaya','18':'Assam','19':'West Bengal','20':'Jharkhand','21':'Odisha','22':'Chhattisgarh','23':'Madhya Pradesh','24':'Gujarat','25':'Daman & Diu','26':'Dadra & Nagar Haveli','27':'Maharashtra','28':'Andhra Pradesh','29':'Karnataka','30':'Goa','31':'Lakshadweep','32':'Kerala','33':'Tamil Nadu','34':'Puducherry','35':'Andaman & Nicobar','36':'Telangana','37':'Andhra Pradesh','38':'Ladakh','97':'Other Territory'};
+const stateName=c=>STATE_NAMES[String(c).padStart(2,'0')]||('State '+c);
+const intl=n=>(Math.round((+n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const _ONES=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+const _TENS=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+function _three(n){ let s=''; if(n>99){s+=_ONES[Math.floor(n/100)]+' Hundred '; n%=100;} if(n>19){s+=_TENS[Math.floor(n/10)]+' '; n%=10;} if(n>0){s+=_ONES[n]+' ';} return s.trim(); }
+function inWords(v){ v=Math.round((+v||0)*100)/100; const rup=Math.floor(v); const pai=Math.round((v-rup)*100);
+  let w='Zero'; if(rup>0){ const sc=['','Thousand','Million','Billion','Trillion']; const parts=[]; let n=rup,i=0;
+    while(n>0){ const c=n%1000; if(c)parts.unshift(_three(c)+(sc[i]?' '+sc[i]:'')); n=Math.floor(n/1000); i++; } w=parts.join(' '); }
+  return w+' and '+(pai===0?'Zero':_three(pai))+' paise'; }
+async function qrDataUrl(text){ const d=document.createElement('div'); new QRCode(d,{text,width:300,height:300,correctLevel:QRCode.CorrectLevel.M});
+  await new Promise(r=>setTimeout(r,80)); const cv=d.querySelector('canvas'); return cv?cv.toDataURL('image/png'):null; }
+
+/* ---- editable invoice-template config (Admin can change & export) ---- */
+const TPL_DEFAULTS={
+  orientation:'landscape',
+  logoUrl:'https://www.hydraspecma.com/javax.faces.resource/2019/HydraSpecma_Logo.png.xhtml?ln=images',
+  logoData:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHsAAAA8CAYAAABGmsWrAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAD/FJREFUeNrsXQl4VNUVPm/WhGhYYiKLBFnCEhSKgBsislgXlKKCWjcEKS32sy7FrSrWBaHVigqftm6fiJ8tVqgiKFbBglgpqOCGEHYxrFGRhITJZOb1nJlzzZnLfbMkkkx0zvcdmbnz3ps39z/Lf869L1q2bUNGfhriykxBBuyMZMDOSAscjGTAzkh6iYf+k2HkTVssy0oe7DFjxsOqVf/FV76f4lyNpylADam5Q92OOg61Or1vPQgFBW1h0aLXIDs7OzmwN2zYCOvWrUv1m45FvYgCAyuJG/U11PVxzuuKej5qWEwupZO5qFsaYcZGoJ6mjb2b/kBHZc+efRAOh5P3bJ9PebQ/le8ZjvqQYXxlArAvRJ1qGH+rEebKi9rJMP5R0whK1ZCVlTxm9SFo3Q1j36KWJDivm2FseyN5dVuOULp8kWHjicH+EnVvHc7birq/EX4/3UuOYXxdBuxaITbQ0TBeIoiOSfLinNcYcrxhrJyNLwM2SxsOgbp8nuC89qj5hvG1jfT7exnGSlF3/mjr7DpIF/buVEErcjAwZSSDUZsLpk7sfhfq+4ZzTkdtZWD1i7WUcCrqUCZiAdQVqC+jVqAWG667UTDxLNQhTOTU/dBnC1Bbc3nWm7/vEYOxn4A6gHnKkagHmLwuQf20qYDd1VCa1CQRjk35OsATTHInT66UD1H7i/JOGc1bhsbAZ6hvCvI1g9m/lF+j3oB6KwMWz2DpfhdqnxNI36HO0lLSPAH2Oai3cUnnMtJogH+hTkL9Kt3BnsOTLQEIJ8GoexjGdrCqidTBbsFRpFKMXevQAZrMxxGIixxyMrA3vsKeGi8VdXEASgc6IAz9LtR7E8wD3fslnEaGid+flmDvTYJ1J1t2kVdXxSl5cpkxVwq+cJXhOArP8zmcPxUHaBAhWhdbi04m4+xrGCtD3YY6OgmgdeOfgjq2IcFuwznHc5i+x+a8Z5q89Q6vlVCuaymMayznal0e4ErgAtTzDJ/TZ8vYsAbydXX5jkFT0jMF46dwfY/hs33s7Vs5fQw1NJluZ27SIGATCBc3EkmUOXIbe3AzMeZnsJWXTzBc4z0mTeTVNzqUUxQ23+D3J/Lx+Ybmzh5RqXRzuGfiJ+9yPZ7Nv6HIwZjvRp3Jr782gE2/qXNDgt2lESsC6c27WGUL0xKgXIrawXCNqRw9yBNPMXw+TQBNQi1daomepR23QfQJjkItdOgJXIO6XBsngzyDuUuIDaIGYluvTj0IqyEm2iNKhMYQKkU2i/dV7N16v1qF7d8arkEe9roo3TwGr56tjVG0ODYBOesoIoqU3xuAJqFW8VJDA2k0R6ogl4u6VHFt32Bg7+NaNnSYvifMhKmlIWzuMHjXYAMjH+LQBJkmqoL+DgBuNzSF2icAu8jgcVVc3sUjfVegXo7ah3sGiWRXfUL4wUDqYN92mI2KJm21AeyNhnrdRNKOMeQ6YE+S4bmz4RgTw++s8QIVYjckYOLb43TXunIEOTHFudkiqpEU+K4FPq8L+vW0wOVKDexUJE+zeItJ1YE45xztEDbXJsjhIHJ1gQMDV17t5Qigy+4k6/2vNSbev6FMdHL00DNYXhcyF5A8ANjUj/q2B7eLS4ok453V2CGkmsDdzfvOKMVPIfQdi18A9Do2WcsOYKR18yXlXXasoyShBcp0D0PdymqniBs7ZBrBLUgE6N8cHc6eHYdgQtJ0DoWg8spOjeKmC3d3Bw7YmcZ5JTFZdyuVPuwTXnKJ18GrYSJJpnvRwuBfVZ2/twMRNCz1k7MMN429z2SW/s12Sc2AEuntHP8yeakG/XgfRLK3or09hJ5mrDmAfwhGSsM6eDs2GrQ6euC3B9RazSgk6dPUGaO+pn9AvAZCduP7VxbTOfQSYe+xLtffnGua7BpJaTrWhIM8DL/6pBvr1wWx5oG6VWqqeXezgiaV1MJLtDvmU7HUTRFernNjJ/Q6f0aLJIG2MWPxzEG2nngzRVquVIKV0czDOLQ6dOdMmMKrh5/L9XuZAgsk4v0oEtGUh0FNc0Ic8en/d95ukArbLIY9tYu92Ej+Y93nF2+gQL1JQePyPzkxZaHJvMpwzhtVJglo4LXZIVXscegVUaejr+6eJhooThdrJRhR32m8f54ehg/BryuvXe0nFTI5yYNSJtvC0dshV8TY6lMTx6gfUS5/XDaf39zHYkfRN+6HnJbifgKHU2c0ELV4kWu/gwSQPOnyWBfG5coXGOw75uce09sEtV+MtB8JQX0kF7G4OHaVk1rCPSIHZqok1ef2iqFfbkR2xz0/zwNIXArBgpgt+1iNbgU7Ln/9zuC6ljuvh0KVNamqoDQ853BBJpiSU+flXELsMq6eX6YbxIjDugavdnT0ak0HzAgw8wfp3VFMJ4xSuZmoWTHewJMF5+wznQRxAFOmjZku2NgPTImSllReef8AFZw2qitC54YOrYdgpNjwyOwumPBncXV4ZHIa3NhGi+9MLGARqqz7E3tRTeJSL62AlPm6O+DSneC3B73yWw/ZvILoMmsO1O7VyZ3APwG0gaNm1PQo7ckir5m6greA52RZMGIlAH0yytkrU2aJHfwYNOhOWLXsbUtw3fjjlMa5dpSzEyTiPJuOlaT4YPepAtPxQ4sYJybFg9eosGDvZho9LgpIzBOOE4DpJUQcPHNfdhpVrQlC62+LLW9IJvLXdwURgRUEeMdgNk66yoFv7MIRqLPB7bWjVstqZ2dj4s3xYIR6P3NKVc1g6aIdbaC16gmE2ptKEjb/AD6OHo0fvs1Q3r2eET4SsagzEJX2OrypZ+pwXrpuGNen8CMaB2vm3IPYBFhMITsDUptYuhV544/EQdO4agu8w289d4oOHZvngi03VCnQ7CrQdCQperxeCwTA7smXMyzP+ADByGJ5CLh0Ut1rzwy2IpYtnD+BWYhF3mbza5xhC7RF9e2bB8llByHIH83ESJvM5kgUT8ZoPXvsGcLt2zZ6fBZ9tdEdmrcWRNnRCmrgXjWQ7Zmi314IVawDeWXkwQg+ovBk70g/bdtjQtQOSk+YWzrsNLpcFO/fasPFLeoAOyUczCx6dVAVdimqi9S5dvpkNB/Z5YfZCHzyD9PCDz6Ogt81HcjXOBUNODsMWPH/+Ui/4PDa0zLUjF9uB3L50N6afSUEo7oU2ud+KS9fq69npAja1FG+Nw55Pzs1xrVnxggU9iqpbQ5W1iFu3TrICPeNMyLYrwK0m0K6NtAhgxPmqvLBgqQ+emheG4QNdMGEM2kolfobhE1xi1kM4FmQuS+PK+6RQGsHsGzrggXlvo9HssuCys4PQtmMg+gvcnPotqL02XTfiuRinq+vgwU00jBfE+QyNwFpz/7Vu6FEcsf47BNA05U9CdKdKf2bardjqiI6iq8mnKqXC37nXafJxi+X9+Prry5BcRuk1bPv1Hov5MJpnrS/SZDsFrtEmVT03KjYmlEPsgggr5qpUWZvbr42vIbUV72fBM4ta+X4Gdp4GqVg2PESVodZSzRKqLN0WTifr7y5iIqjC/vqmx8e+jYpt8DyyciUAfHdB3ZPRnZqtkmSAqG9gACkR+zdGY92rxeph4vZLBlR3oCZyL3Qx2AZc45RD7YEFYhNszRM5fxqG50ODB7UVkCLJnAvMDBSqtwu1g8qbG6Dm2X/BrSSJLmiTYluWC+yda0K4woDUjIrKcLV6tRhE7fkyAIzdIvMfv5SbHc7i8IxKntvvWcB6vYk9Sm/gpLWzmcSJuF/G/ZQyaug96COBiZv5Pi4ixldNKnkgVmw2kcRfU7mmXUWAL35t8UvQzjkBXaOXe5iYItg3dj6UyKxT1UXNuehhqt/dcyqoL7VZ5n/OutJj7mEXLpctnRHifKsCmPPkRT7hHtHQv5ygyh6/v59dSCOjnuXSyRKpQD0N014BSu197GryVNniotfUb+fdKo66EFJ4mSavSq5nfSrRseyfXlaY8SZP2BDN0ffK28sRKoNXD8CBKqGsgduuRR0SVh8X4jVD70D9ojHskh/z+2vdXiRpaB9UFsdubFem7W+T6bAZ6ubhWFqSwoJFWYTxsQ6Kl3xB759PcwerAZ9Bu1BUi/wHEbhemUuteDrm57LVvGK7/LIS4lAlTFR/7rsZ4qQ4/l9uqvfmOP+X6WT1E8CKfBxC7W3a6qPPXCo5BXbpm/PoD4fkD2YBas6eTUQ4QXcGyJkrQkpZtEH+7sRdiN0eu5dp2RhLXLuUwnNA22TDedPh8tUYKJfcwGfFih+t8w0YoZUldJu3H+leJ9Qf3PoWMRD27oqJC9AwaT8rLeQuOBfXdRFQsGichLbz/eIQSWGg/JLvjIQL25Ml3wM6dX4H578k0nBzVAr+/I6IslxzrJpTrJvIsfAsN8FcNGonlYGxGm7aSe7LPyvyt8Z+OZP5PAhmwM5IBOyMZsDOSATsjaSb/F2AAaxRZSGXGHq8AAAAASUVORK5CYII=',
+  accent:'#e1971a', title:'Tax invoice',
+  cin:'U29219TN2007PTC063264',
+  bankName:'HDFC BANK', bankAcc:'50200000806241', swift:'HDFCINBBCHE', ifsc:'HDFC0002757',
+  termsPay:'Net45', deliveryTerms:'DAP',
+  phone:'+91 6383688129', email:'info.hsin@hydraspecma.com', website:'www.hydraspecma.com',
+  signatory:'For HydraSpecma India PVT LTD',
+  reverseNote:'Note: Tax on this invoice is not payable under reverse charge.',
+  certText:'Certified that the particulars given above are true and correct and the amount indicated represents the price actually charged and there is no flow or addtional consideration directly or inderectly from the buyer.',
+  termsSale:'TERMS OF SALE : All disputes if any will be subject to seller court jurisdiction.',
+  showCopies:true, showQr:true, showBank:true, showCert:true, showIrn:true,
+  cols:{slNo:true,itemNo:true,external:true,hsn:true,unit:true,qty:true,price:true,taxComp:true,valPct:true,taxAmt:true,total:true},
+  
+  // Format Designer settings
+  fontFamily:'helvetica',
+  fontSizeTitle:27.8,
+  fontSizeHeader:9.9,
+  fontSizeTableHead:9.9,
+  fontSizeTableBody:9.9,
+  marginPageLeft:31.18,
+  marginPageRight:31.18,
+  marginPageTop:34,
+  marginPageBottom:20,
+  cellPaddingTable:2.3,
+  tableTheme:'plain',
+  showBottomBreakdown:false,
+  metaOffset:99,
+  partyOffset:82,
+  bankOffset:110,
+  bankBoxWidth:291.94,
+  termsOffset:102,
+  colWidths:{slNo:12,itemNo:82,external:60,desc:147,hsn:56,unit:31,qty:54,price:62,taxComp:82,valPct:54,taxAmt:76,total:62}
+};
+let TPL=Object.assign({}, TPL_DEFAULTS, (window.__TPL_OVERRIDE__||{}));
+TPL.cols=Object.assign({}, TPL_DEFAULTS.cols, (window.__TPL_OVERRIDE__&&window.__TPL_OVERRIDE__.cols)||{});
+TPL.colWidths=Object.assign({}, TPL_DEFAULTS.colWidths, (window.__TPL_OVERRIDE__&&window.__TPL_OVERRIDE__.colWidths)||{});
+
+async function loadLogo(){
+  const useData=TPL.logoData;
+  const src=useData||TPL.logoUrl; if(!src) return null;
+  try{
+    const img=new Image(); if(!useData) img.crossOrigin='anonymous';
+    await new Promise((res,rej)=>{ img.onload=res; img.onerror=()=>rej(new Error('load')); img.src=src; });
+    /* Always render through canvas → JPEG for maximum jsPDF compatibility.
+       Raw PNG base64 can fail in jsPDF due to alpha channels or unusual compression. */
+    const cv=document.createElement('canvas');
+    cv.width=img.naturalWidth||300; cv.height=img.naturalHeight||90;
+    const ctx=cv.getContext('2d');
+    ctx.fillStyle='#FFFFFF';           /* white background (PNG transparency → solid) */
+    ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.drawImage(img,0,0);
+    return {data:cv.toDataURL('image/jpeg',0.95),w:cv.width,h:cv.height};
+  }catch(e){ console.warn('Logo load failed:',e); return null; }
+}
+
+function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
+  meta=meta||{}; const S=obj.SellerDtls||{},B=obj.BuyerDtls||{},V=obj.ValDtls||{},H=obj.ShipDtls||B;
+  const W=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight();
+  const L=TPL.marginPageLeft||31.18, R=W-(TPL.marginPageRight||31.18), ink=[20,24,28], soft=[92,99,107]; const inter=(V.IgstVal||0)>0;
+  const fFamily=TPL.fontFamily||'helvetica';
+  
+  // logo / wordmark
+  if(logo&&logo.data){
+    try{
+      doc.addImage(logo.data,'JPEG',56.69,48.47,96.37,39.40);
+    }catch(_){
+      doc.setFont(fFamily,'bold'); doc.setFontSize(20); doc.setTextColor.apply(doc,ink); doc.text('Hydra',L,74); const hw=doc.getTextWidth('Hydra'); doc.setTextColor(225,151,26); doc.setFont(fFamily,'bolditalic'); doc.text('Specma',L+hw+1,74);
+    }
+  } else {
+    doc.setFont(fFamily,'bold'); doc.setFontSize(20); doc.setTextColor.apply(doc,ink); doc.text('Hydra',L,74); const hw=doc.getTextWidth('Hydra'); doc.setTextColor(225,151,26); doc.setFont(fFamily,'bolditalic'); doc.text('Specma',L+hw+1,74);
+  }
+  doc.setTextColor.apply(doc,ink);
+  
+  // Copy label and Title (left-aligned at 289.10 pt)
+  doc.setFont(fFamily,'bold'); doc.setFontSize(TPL.fontSizeHeader||9.9);
+  if(TPL.showCopies) doc.text(copyLabel||'Original',289.10,34.02);
+  doc.setFontSize(TPL.fontSizeTitle||27.8);
+  doc.text(TPL.title||'Tax invoice',289.10,73.98);
+  
+  // Seller block (right column, starts at 586.71 pt)
+  doc.setFont(fFamily,'bold'); doc.setFontSize(TPL.fontSizeHeader||9.9);
+  doc.text(S.LglNm||'',586.71,34.30);
+  doc.setFont(fFamily,'normal'); doc.setFontSize(TPL.fontSizeHeader||9.9);
+  
+  const sAddr = doc.splitTextToSize([S.Addr1, S.Addr2].filter(Boolean).join(', '), 224);
+  sAddr.forEach((line, idx) => {
+    doc.text(line, 586.71, 45.64 + idx * 11.34);
+  });
+  const sAddrEndY = 45.64 + (sAddr.length - 1) * 11.34;
+  
+  doc.text('State & Code : '+stateName(S.Stcd)+' & '+(S.Stcd||''), 586.71, sAddrEndY + 11.34);
+  doc.text('GSTIN : '+(S.Gstin||''), 586.71, sAddrEndY + 22.68);
+  if(TPL.cin){
+    doc.text('CIN NO : '+TPL.cin, 586.71, sAddrEndY + 34.02);
+  }
+
+  // Receiver and Consignee titles (Y = 113.38 pt)
+  doc.setFont(fFamily,'normal'); doc.setFontSize(9.9);
+  doc.text('Retails of Receiver (Billed to)', 31.18, 113.38);
+  doc.text('Details of Consignee (Shipped to)', 289.10, 113.38);
+  
+  // Party Names (bold, size 7.9)
+  doc.setFont(fFamily,'bold'); doc.setFontSize(7.9);
+  doc.text(B.LglNm||'', 31.18, 130.38);
+  doc.text(H.LglNm||'', 289.10, 130.38);
+  
+  // Party Address lines (size 7.9)
+  doc.setFont(fFamily,'normal');
+  const bAddr = doc.splitTextToSize([B.Addr1, B.Addr2].filter(Boolean).join(', ') + (B.Loc ? ', ' + B.Loc : '') + (B.Pin ? ' ' + B.Pin : ''), 230);
+  bAddr.forEach((line, idx) => {
+    doc.text(line, 31.18, 144.55 + idx * 9.07);
+  });
+  
+  const hAddr = doc.splitTextToSize([H.Addr1, H.Addr2].filter(Boolean).join(', ') + (H.Loc ? ', ' + H.Loc : '') + (H.Pin ? ' ' + H.Pin : ''), 230);
+  hAddr.forEach((line, idx) => {
+    doc.text(line, 289.10, 144.55 + idx * 9.07);
+  });
+  
+  // Party Metadata (Registration number, Place of supply, State code)
+  const drawPartyMeta = (x, p, isConsignee) => {
+    doc.setFont(fFamily, 'normal'); doc.setFontSize(7.9);
+    doc.text('Registration number', x, 232.42);
+    doc.text(p.Gstin || 'URP', x + (TPL.partyOffset || 82), 232.42);
+    
+    if (isConsignee) {
+      doc.text('State', x, 246.59);
+      doc.text(p.Stcd ? stateName(p.Stcd) : '', x + (TPL.partyOffset || 82), 246.59);
+    } else {
+      doc.text('Place of supply', x, 246.59);
+      doc.text(p.Pos ? stateName(p.Pos) : '', x + (TPL.partyOffset || 82), 246.59);
+    }
+    
+    doc.text('State code', x, 260.76);
+    doc.text(p.Stcd || '', x + (TPL.partyOffset || 82), 260.76);
+  };
+  drawPartyMeta(31.18, B, false);
+  drawPartyMeta(289.10, H, true);
+  
+  // Metadata Section (Right Column)
+  doc.setFont(fFamily, 'bold'); doc.setFontSize(13.9);
+  doc.text('Tax invoice', 586.71, 160.14);
+  doc.text(obj.DocDtls.No, R, 160.14, {align: 'right'});
+  
+  if (meta.origInvoiceNo) {
+    doc.setFont(fFamily, 'bold'); doc.setFontSize(7.9);
+    doc.text('Original invoice number', 586.71, 184.23);
+    doc.setFont(fFamily, 'normal');
+    doc.text(meta.origInvoiceNo, 586.71 + (TPL.metaOffset || 99), 184.23);
+    if (meta.origInvoiceDate) {
+      doc.setFont(fFamily, 'bold');
+      doc.text('Original invoice date', 586.71, 198.40);
+      doc.setFont(fFamily, 'normal');
+      doc.text(meta.origInvoiceDate, 586.71 + (TPL.metaOffset || 99), 198.40);
+    }
+  }
+  
+  const drawMetaRow = (label, val, y) => {
+    doc.setFont(fFamily, 'bold'); doc.setFontSize(7.9);
+    doc.text(label, 586.71, y);
+    doc.setFont(fFamily, 'normal');
+    doc.text(val || '', 586.71 + (TPL.metaOffset || 99), y);
+  };
+  drawMetaRow('Sales order', meta.salesOrder, 209.74);
+  drawMetaRow('Date', obj.DocDtls.Dt, 221.08);
+  drawMetaRow('Customer account', meta.custAcct, 232.70);
+  drawMetaRow('Requisition', meta.requisition, 246.87);
+  drawMetaRow('Your ref.', meta.yourRef, 261.04);
+  
+  let rightBottom = 261.04;
+  if(TPL.showQr&&qrUrl){
+    try{
+      doc.addImage(qrUrl,'PNG',R-74,rightBottom+4,74,74);
+      rightBottom += 80;
+    }catch(_){ }
+  }
+  
+  // Table columns definition (matching layout and widths of 3156.pdf)
+  const cols=[
+    {k:'slNo',h:'',w:12,a:'left',v:it=>it.SlNo||''},
+    {k:'itemNo',h:'Item number',w:82,a:'left',v:it=>it._itemNo||''},
+    {k:'external',h:'External',w:60,a:'left',v:it=>it._external||''},
+    {k:'desc',h:'Description',w:147,a:'left',v:it=>it.PrdDesc||''},
+    {k:'hsn',h:'HSN codes',w:56,a:'center',v:it=>it.HsnCd||''},
+    {k:'unit',h:'Unit',w:31,a:'center',v:it=>(it.Unit||'PCS').toLowerCase()},
+    {k:'qty',h:'Quantity',w:54,a:'right',v:it=>intl(it.Qty)},
+    {k:'price',h:'Sales price',w:62,a:'right',v:it=>intl(it.UnitPrice)},
+    {k:'taxComp',h:'Tax component',w:82,a:'left',v:()=>''},
+    {k:'valPct',h:'Value %',w:54,a:'right',v:()=>''},
+    {k:'taxAmt',h:'Tax amount',w:76,a:'right',v:()=>''},
+    {k:'total',h:'Total amount',w:62,a:'right',v:it=>intl(it.AssAmt)} // Displays taxable value (AssAmt)
+  ].filter(c=>TPL.cols[c.k]!==false);
+  
+  const head=[cols.map(c=>c.h)]; const body=[];
+  obj.ItemList.forEach(it=>{
+    body.push(cols.map(c=>(c.k==='taxComp'||c.k==='valPct'||c.k==='taxAmt')?'':c.v(it)));
+    const trs= inter ? [['IGST',it.GstRt,it.IgstAmt]] : [['CGST',r2(it.GstRt/2),it.CgstAmt],['SGST',r2(it.GstRt/2),it.SgstAmt]];
+    trs.forEach(t=>body.push(cols.map(c=> c.k==='taxComp'?t[0] : c.k==='valPct'?String(t[1]) : c.k==='taxAmt'?intl(t[2]) : '')));
+  });
+  
+  const colStyles={};
+  cols.forEach((c,i)=>colStyles[i]={cellWidth:(TPL.colWidths && TPL.colWidths[c.k] != null ? TPL.colWidths[c.k] : c.w),halign:c.a});
+  
+  // Align table start Y to ~290 pt
+  const startY = Math.max(rightBottom, 261.04) + 28.63;
+  
+  doc.autoTable({
+    head, body, startY,
+    theme: TPL.tableTheme || 'plain',
+    styles:{
+      fontSize: TPL.fontSizeTableBody||9.9,
+      cellPadding: TPL.cellPaddingTable||2.3,
+      lineColor: [206,206,206],
+      textColor: [20,24,28],
+      overflow: 'linebreak',
+      valign: 'top',
+      font: fFamily
+    },
+    headStyles:{
+      fillColor: (TPL.tableTheme==='plain'||!TPL.tableTheme)?[255,255,255]:[20,24,28],
+      textColor: (TPL.tableTheme==='plain'||!TPL.tableTheme)?[20,24,28]:[255,255,255],
+      fontSize: TPL.fontSizeTableHead||9.9,
+      halign: 'center',
+      fontStyle: 'bold',
+      font: fFamily
+    },
+    columnStyles:colStyles,
+    margin:{left:L,right:W-R},
+    didDrawCell: function(data) {
+      if (TPL.tableTheme === 'plain' || !TPL.tableTheme) {
+        const doc = data.doc;
+        const isHeader = data.section === 'head';
+        
+        doc.setDrawColor(20, 24, 28);
+        
+        if (isHeader) {
+          doc.setLineWidth(0.8);
+          // Draw bottom header horizontal line only
+          doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+        }
+      }
+    }
+  });
+  
+  // Bottom static sections (placed at absolute coordinates as in 3156.pdf)
+  // Grand Total in words
+  doc.setFont(fFamily, 'italic'); doc.setFontSize(7.9); doc.setTextColor(20, 24, 28);
+  doc.text(doc.splitTextToSize(inWords(V.TotInvVal), 214), 362.51, 442.15);
+  
+  // Reverse charge note
+  if(TPL.reverseNote){
+    doc.setFont(fFamily, 'normal'); doc.setFontSize(7.9);
+    doc.text(TPL.reverseNote, 31.18, 442.15);
+  }
+  
+  // Grand Total amount (INR)
+  doc.setFont(fFamily, 'bold'); doc.setFontSize(9.9);
+  doc.text('Total amount', 628.94, 444.42);
+  doc.text(intl(V.TotInvVal), R - 25, 444.42, {align: 'right'});
+  doc.text('INR', R, 444.42, {align: 'right'});
+  
+  // IRN block
+  if (TPL.showIrn && signed && signed.irn) {
+    doc.setFont(fFamily, 'bold'); doc.setFontSize(7.9);
+    doc.text('IRN', 31.18, 456.32);
+    doc.setFont('courier', 'normal'); doc.setFontSize(7.2);
+    doc.text(signed.irn, 58.00, 456.32);
+  }
+  
+  // Terms & Delivery
+  doc.setFont(fFamily, 'normal'); doc.setFontSize(7.9);
+  doc.text('Terms of payment', 31.18, 470.50);
+  doc.text(meta.termsPay || TPL.termsPay || '', 133.21, 470.50);
+  
+  doc.text('Delivery terms', 31.18, 484.67);
+  doc.text(meta.deliveryTerms || TPL.deliveryTerms || '', 133.21, 484.67);
+  
+  // Bank Details box (centered, starts at 289.10 pt)
+  if(TPL.showBank){
+    doc.setDrawColor(150); doc.setLineWidth(0.6);
+    doc.rect(289.10, 449.52, 291.94, 77.66);
+    
+    doc.setFont(fFamily, 'bold'); doc.setFontSize(9.9);
+    doc.text('BankDetails :', 306.11, 465.68);
+    
+    doc.setFont(fFamily, 'normal'); doc.setFontSize(7.9);
+    doc.text('Bank account number', 385.47, 484.67);
+    doc.text('SWIFT code', 385.47, 501.67);
+    doc.text('IFSC', 385.47, 515.84);
+    
+    doc.text(TPL.bankName || '', 484.67, 465.68);
+    doc.text(TPL.bankAcc || '', 484.67, 484.67);
+    doc.text(TPL.swift || '', 484.67, 501.67);
+    doc.text(TPL.ifsc || '', 484.67, 515.84);
+  }
+  
+  // Certification text (left-bottom)
+  if (TPL.showCert && TPL.certText) {
+    doc.setFont(fFamily, 'normal'); doc.setFontSize(7.9); doc.setTextColor(92, 99, 107);
+    const certLines = doc.splitTextToSize(TPL.certText, 250);
+    certLines.forEach((line, idx) => {
+      doc.text(line, 31.18, 498.84 + idx * 9.07);
+    });
+  }
+  
+  // Terms of sale
+  if (TPL.termsSale) {
+    doc.setFont(fFamily, 'normal'); doc.setFontSize(7.9); doc.setTextColor(20, 24, 28);
+    doc.text(doc.splitTextToSize(TPL.termsSale, 250), 31.18, 541.35);
+  }
+  
+  // Signatory line
+  doc.setFont(fFamily, 'bold'); doc.setFontSize(7.9); doc.setTextColor(20, 24, 28);
+  doc.text(TPL.signatory || '', R, 499.12, {align: 'right'});
+  doc.setFont(fFamily, 'normal');
+  doc.text('Authorised Signatory', R, 556.94, {align: 'right'});
+  
+  // Contact details & Page number
+  doc.setFontSize(7.9); doc.setTextColor(92, 99, 107);
+  doc.text('Ph. ' + (TPL.phone || '') + ', Email: ' + (TPL.email || '') + ', Website: ' + (TPL.website || ''), 31.18, 561.19);
+  doc.setTextColor(20, 24, 28);
+  doc.text('Page 1 of 1', R, 575.93, {align: 'right'});
+}
+
+$('btnGenPdf').onclick=async()=>{
+  if(!window.jspdf||!window.jspdf.jsPDF){ setStatus($('genStatus'),'bad','PDF engine (jsPDF) not loaded — check your connection to cdnjs.'); return; }
+  const copies=[...document.querySelectorAll('.cpchk:checked')].map(c=>c.value);
+  if(!copies.length){ setStatus($('genStatus'),'bad','Select at least one copy.'); return; }
+  setStatus($('genStatus'),'work','Building invoice PDF…',true);
+  try{
+    const obj=buildObject();
+    obj.ItemList.forEach((it,i)=>{ const s=STATE.items[i]||{}; it._itemNo=s.itemNo||''; it._external=s.external||''; });
+    const qrUrl=(TPL.showQr&&STATE.signed)?await qrDataUrl(STATE.signed.qr):null;
+    const logo=await loadLogo();
+    const { jsPDF }=window.jspdf;
+    const doc=new jsPDF({unit:'pt',format:'a4',orientation:(TPL.orientation==='portrait'?'portrait':'landscape')});
+    if(typeof doc.autoTable!=='function'){ setStatus($('genStatus'),'bad','Table plugin not loaded.'); return; }
+    copies.forEach((c,i)=>{ if(i)doc.addPage(); drawInvoice(doc,obj,c,STATE.signed,qrUrl,logo,STATE.meta); });
+    doc.save((val('docNo')||'invoice').replace(/[^A-Za-z0-9._-]+/g,'_')+(STATE.signed?'_IRN':'')+'.pdf');
+    let note=copies.length+'-copy '+(TPL.orientation==='portrait'?'portrait':'landscape')+' invoice generated'+(STATE.signed?' with IRN + QR.':'.');
+    if(!TPL.logoData && TPL.logoUrl && !logo) note+=' Logo URL blocked (CORS) — upload your logo in Admin to embed it.';
+    setStatus($('genStatus'),'ok',note);
+  }catch(e){ setStatus($('genStatus'),'bad','Generation failed: '+e.message); }
+};
+
+/* ============================ BATCH — many invoices -> one JSON ============================ */
+function isoFromDdmmyyyy(s){ const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s||''); return m?`${m[3]}-${m[2]}-${m[1]}`:''; }
+function readSeller(){
+  const s={Gstin:val('sGstin'),LglNm:val('sLgl'),Addr1:val('sA1'),Loc:val('sLoc'),Pin:Number(val('sPin'))||0,Stcd:val('sStcd')};
+  if(val('sTrd'))s.TrdNm=val('sTrd'); if(val('sA2'))s.Addr2=val('sA2'); if(val('sPh'))s.Ph=val('sPh'); if(val('sEm'))s.Em=val('sEm');
+  return s;
+}
+/* Pure builder: v1.1 object from a parsed invoice + the current seller (no form mutation) */
+function composeFromParsed(p){
+  const seller=readSeller();
+  const inter = (p.inter!==undefined) ? p.inter : (!!p.buyerStcd && !!seller.Stcd && p.buyerStcd!==seller.Stcd);
+  let ass=0,ig=0,cg=0,sg=0;
+  const IL=(p.items||[]).map((it,i)=>{
+    const taxable=r2(it.qty*it.price-(it.disc||0)); const tax=r2(taxable*it.rate/100);
+    const _ig=inter?tax:0,_cg=inter?0:r2(tax/2),_sg=inter?0:r2(tax-_cg);
+    ass+=taxable; ig+=_ig; cg+=_cg; sg+=_sg;
+    return {SlNo:String(i+1),PrdDesc:it.desc,IsServc:"N",HsnCd:it.hsn,Qty:r2(it.qty),Unit:(it.unit||'NOS').toUpperCase(),
+      UnitPrice:r2(it.price),TotAmt:r2(it.qty*it.price),Discount:r2(it.disc||0),AssAmt:taxable,GstRt:r2(it.rate),
+      IgstAmt:_ig,CgstAmt:_cg,SgstAmt:_sg,CesRt:0,CesAmt:0,TotItemVal:r2(taxable+_ig+_cg+_sg)};
+  });
+  ass=r2(ass);ig=r2(ig);cg=r2(cg);sg=r2(sg);
+  const calcTot=r2(ass+ig+cg+sg), totInv=Math.round(calcTot), rnd=r2(totInv-calcTot);
+  const buyer={Gstin:p.buyerGstin||'URP',LglNm:(p.buyer&&p.buyer.name)||'',Pos:p.buyerPos||p.buyerStcd||'',
+    Addr1:(p.buyer&&p.buyer.addr)||'',Loc:(p.buyer&&p.buyer.loc)||'',Pin:Number(p.buyer&&p.buyer.pin)||0,Stcd:p.buyerStcd||''};
+  const obj={ Version:"1.1",
+    TranDtls:{TaxSch:"GST",SupTyp:val('supTyp')||'B2B',RegRev:val('regRev')||'N',IgstOnIntra:'N'},
+    DocDtls:{Typ:val('docTyp')||'INV',No:(p.docNo||'').toUpperCase(),Dt:p.docDt?ddmmyyyy(p.docDt):''},
+    SellerDtls:seller, BuyerDtls:buyer, ItemList:IL,
+    ValDtls:{AssVal:ass,CgstVal:cg,SgstVal:sg,IgstVal:ig,CesVal:0,Discount:0,OthChrg:0,RndOffAmt:rnd,TotInvVal:totInv} };
+  if(p.ship){ obj.ShipDtls={Gstin:p.buyerGstin||'',LglNm:p.ship.name||buyer.LglNm,Addr1:p.ship.addr||'',Loc:p.ship.loc||'',Pin:Number(p.ship.pin)||0,Stcd:p.buyerStcd||''}; }
+  return obj;
+}
+/* Pure validator over an object (single-form gate also delegates here) */
+function checkObject(obj){
+  const c=[]; const add=(ok,label,detail,warn)=>c.push({ok,warn:warn&&!ok,label,detail:detail||''});
+  const S=obj.SellerDtls||{},B=obj.BuyerDtls||{},V=obj.ValDtls||{},items=obj.ItemList||[];
+  const supTyp=(obj.TranDtls||{}).SupTyp||'B2B', isB2B=['B2B','SEZWP','SEZWOP','DEXP'].includes(supTyp);
+  const ig=V.IgstVal||0,cg=V.CgstVal||0,sg=V.SgstVal||0,ass=V.AssVal||0,rnd=V.RndOffAmt||0,tot=V.TotInvVal||0,inter=ig>0;
+  add(GSTIN_RE.test(S.Gstin||''),'Seller GSTIN valid',S.Gstin||'');
+  add(!isB2B||GSTIN_RE.test(B.Gstin||''),'Buyer GSTIN valid',isB2B?(B.Gstin||''):'export — n/a');
+  add(items.length>0 && items.every(it=>String(it.HsnCd).replace(/\D/g,'').length>=6),'HSN ≥ 6 digits','all lines');
+  add(/^\d{2}$/.test(S.Stcd||'')&&/^\d{2}$/.test(B.Stcd||'')&&/^\d{1,2}$/.test(String(B.Pos||'')),'State codes present','seller '+(S.Stcd||'')+' / pos '+(B.Pos||''));
+  const taxOK=inter?(cg===0&&sg===0&&ig>0):(ig===0&&(cg>0||sg>0));
+  add(taxOK,inter?'Inter-state → IGST only':'Intra-state → CGST + SGST',inter?('IGST '+fmt(ig)):('C '+fmt(cg)+' / S '+fmt(sg)));
+  const no=(obj.DocDtls||{}).No||'';
+  add(no.length>0&&no.length<=16&&/^[A-Za-z0-9\/\-]+$/.test(no),'Doc no. ok (≤16, A–Z 0–9 / -)',no);
+  add(/^\d{2}\/\d{2}\/\d{4}$/.test((obj.DocDtls||{}).Dt||''),'Document date set',(obj.DocDtls||{}).Dt||'');
+  add(items.length>0&&items.every(it=>it.Qty>0&&it.UnitPrice>0),'Qty & price > 0','');
+  const sumAss=r2(items.reduce((s,it)=>s+(it.AssAmt||0),0));
+  add(Math.abs(sumAss-ass)<0.02,'ΣTaxable = ValDtls.AssVal',fmt(sumAss));
+  add(Math.abs(tot-(ass+ig+cg+sg+rnd))<0.02,'TotInvVal reconciles','₹ '+fmt(tot));
+  add(Math.abs(rnd)<1,'Round-off within ±1.00',fmt(rnd),true);
+  const sl=items.map(it=>it.SlNo); add(new Set(sl).size===sl.length,'No duplicate line serial numbers',sl.length+' lines');
+  const bytes=new Blob([JSON.stringify(obj)]).size;
+  add(bytes<2*1024*1024,'Payload < 2 MB',(bytes/1024).toFixed(1)+' KB',true);
+  add(isB2B?!!(B.Gstin):true,'Not B2C (buyer GSTIN present)',isB2B?'':'export');
+  return c;
+}
+/* Load an object back into the form (for Review/Edit of a queued invoice) */
+function applyObjToForm(obj){
+  const T=obj.TranDtls||{},D=obj.DocDtls||{},B=obj.BuyerDtls||{};
+  $('supTyp').value=T.SupTyp||'B2B'; $('regRev').value=T.RegRev||'N'; $('igstIntra').value=T.IgstOnIntra||'N'; $('docTyp').value=D.Typ||'INV';
+  $('docNo').value=D.No||''; $('docDt').value=isoFromDdmmyyyy(D.Dt||'');
+  $('bGstin').value=(B.Gstin&&B.Gstin!=='URP')?B.Gstin:''; $('bPos').value=B.Pos||''; $('bStcd').value=B.Stcd||'';
+  $('bLgl').value=B.LglNm||''; $('bTrd').value=B.TrdNm||''; $('bA1').value=B.Addr1||''; $('bA2').value=B.Addr2||''; $('bLoc').value=B.Loc||''; $('bPin').value=B.Pin||'';
+  if(obj.ShipDtls){ setShip(true); const H=obj.ShipDtls; $('hGstin').value=H.Gstin||''; $('hStcd').value=H.Stcd||''; $('hLgl').value=H.LglNm||''; $('hA1').value=H.Addr1||''; $('hA2').value=H.Addr2||''; $('hLoc').value=H.Loc||''; $('hPin').value=H.Pin||''; }
+  else setShip(false);
+  STATE.items=(obj.ItemList||[]).map(it=>({hsn:it.HsnCd,desc:it.PrdDesc,unit:it.Unit,qty:it.Qty,price:it.UnitPrice,disc:it.Discount||0,rate:it.GstRt}));
+  STATE.rndOverride=(obj.ValDtls||{}).RndOffAmt!=null?obj.ValDtls.RndOffAmt:0;
+  renderItems(); build();
+}
+/* side-effect-free PDF text extractor for batch */
+async function batchPdfText(buf){
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise; let out='';
+  for(let p=1;p<=pdf.numPages;p++){ const page=await pdf.getPage(p); const tc=await page.getTextContent(); const rows={};
+    tc.items.forEach(it=>{const y=Math.round(it.transform[5]);(rows[y]=rows[y]||[]).push({x:it.transform[4],s:it.str});});
+    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y=>{ out+=rows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n'; }); out+='\n'; }
+  return out;
+}
+async function pdfTextFromFile(f){ const buf=await f.arrayBuffer(); return batchPdfText(buf); }
+
+async function addFilesToBatch(files){
+  $('batchWrap').style.display=''; setStatus($('batchStatus'),'work',`Processing ${files.length} file(s)…`,true);
+  for(const f of files){
+    let entry;
+    try{
+      const isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name);
+      const text=isPdf? await pdfTextFromFile(f) : await ocrImage(f);
+      const parsed=parseInvoiceText(text);
+      if(!parsed.items||!parsed.items.length) throw new Error('no line items detected');
+      const obj=composeFromParsed(parsed);
+      const checks=checkObject(obj); const ok=checks.every(c=>c.ok||c.warn);
+      entry={name:f.name,no:obj.DocDtls.No,obj,checks,ok,copies:parsed.copies||1,lines:obj.ItemList.length,total:obj.ValDtls.TotInvVal,inter:obj.ValDtls.IgstVal>0,meta:parsed.meta||{},codes:(parsed.items||[]).map(it=>({itemNo:it.itemNo||'',external:it.external||''}))};
+    }catch(err){ entry={name:f.name,no:'',obj:null,checks:[],ok:false,error:err.message,copies:1,lines:0,total:0}; }
+    STATE.batch.push(entry); renderBatch();
+  }
+  const okN=STATE.batch.filter(b=>b.obj&&b.ok).length;
+  setStatus($('batchStatus'), okN?'ok':'bad', `${STATE.batch.length} in queue · ${okN} ready. Review any flagged invoice (loads it into the form), then download the combined JSON.`);
+}
+function renderBatch(){
+  const wrap=$('batchWrap'), list=$('batchList');
+  if(!STATE.batch.length){ wrap.style.display='none'; $('btnBatchUpdate').style.display='none'; return; }
+  wrap.style.display='';
+  const okN=STATE.batch.filter(b=>b.obj&&b.ok).length, bad=STATE.batch.length-okN;
+  $('batchCount').innerHTML=`<strong>${STATE.batch.length}</strong> invoice(s) — <span style="color:var(--ok);font-weight:700">${okN} ready</span>${bad?` · <span style="color:var(--bad);font-weight:700">${bad} need fixing</span>`:''}`;
+  list.innerHTML=STATE.batch.map((b,i)=>{
+    const fails=b.checks.filter(c=>!c.ok&&!c.warn).length;
+    const badge=!b.obj?`<span class="bbad">parse failed</span>`:(fails?`<span class="bbad">${fails} blocker${fails>1?'s':''}</span>`:`<span class="bok">ready</span>`);
+    const editing=STATE.batchEditIdx===i?`<span class="bedit">editing</span>`:'';
+    const sub=b.obj?`${b.lines} line(s) · ${b.inter?'IGST':'CGST+SGST'} · ₹ ${fmt(b.total)}${b.copies>1?` · ${b.copies} copies merged`:''}`:(b.error||'could not parse');
+    return `<div class="brow ${(b.obj&&!fails)?'':'bad'}">
+      <span class="bno">${i+1}</span>
+      <span class="bmain"><span class="bttl">${(b.no||b.name||'invoice').replace(/</g,'&lt;')}</span><span class="bsub">${sub.replace(/</g,'&lt;')}</span></span>
+      ${badge}${editing}
+      <span class="bact">${b.obj?`<button class="btn xs" data-bedit="${i}">Review</button>`:''}<button class="btn xs line" data-brem="${i}" title="remove">✕</button></span>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('[data-bedit]').forEach(btn=>btn.onclick=()=>reviewBatch(+btn.dataset.bedit));
+  list.querySelectorAll('[data-brem]').forEach(btn=>btn.onclick=()=>{ const i=+btn.dataset.brem; STATE.batch.splice(i,1); if(STATE.batchEditIdx===i)STATE.batchEditIdx=-1; else if(STATE.batchEditIdx>i)STATE.batchEditIdx--; renderBatch(); });
+}
+function reviewBatch(i){
+  const b=STATE.batch[i]; if(!b||!b.obj)return;
+  STATE.batchEditIdx=i; applyObjToForm(b.obj); STATE.meta=b.meta||{}; if(b.codes)STATE.items.forEach((it,k)=>{ if(b.codes[k]){it.itemNo=b.codes[k].itemNo;it.external=b.codes[k].external;} }); window.scrollTo({top:0,behavior:'smooth'});
+  $('btnBatchUpdate').style.display=''; $('btnBatchUpdate').textContent='Update #'+(i+1)+' from form';
+  setStatus($('batchStatus'),'ok',`Loaded invoice #${i+1} into the form above. Edit it, watch the gate, then click “Update #${i+1} from form”.`);
+  renderBatch();
+}
+
+(function wireBatch(){
+  const bdrop=$('batchDrop'); if(!bdrop)return;
+  $('btnBatchPick').onclick=()=>$('batchFiles').click();
+  ['dragenter','dragover'].forEach(ev=>bdrop.addEventListener(ev,e=>{e.preventDefault();bdrop.classList.add('hot');}));
+  ['dragleave','drop'].forEach(ev=>bdrop.addEventListener(ev,e=>{e.preventDefault();bdrop.classList.remove('hot');}));
+  bdrop.addEventListener('drop',e=>{const fs=[...e.dataTransfer.files]; if(fs.length)addFilesToBatch(fs);});
+  $('batchFiles').onchange=e=>{const fs=[...e.target.files]; if(fs.length)addFilesToBatch(fs); e.target.value='';};
+  $('btnBatchClear').onclick=()=>{ STATE.batch=[]; STATE.batchEditIdx=-1; $('btnBatchUpdate').style.display='none'; renderBatch(); hideStatus($('batchStatus')); };
+  $('btnBatchUpdate').onclick=()=>{
+    const i=STATE.batchEditIdx; if(i<0||!STATE.batch[i])return;
+    const obj=buildObject(), checks=checkObject(obj), ok=checks.every(c=>c.ok||c.warn);
+    STATE.batch[i]={...STATE.batch[i],obj,checks,ok,no:obj.DocDtls.No,lines:obj.ItemList.length,total:obj.ValDtls.TotInvVal,inter:obj.ValDtls.IgstVal>0};
+    setStatus($('batchStatus'),'ok',`Invoice #${i+1} updated from the form.`); renderBatch();
+  };
+  $('btnBatchDl').onclick=()=>{
+    const all=STATE.batch.filter(b=>b.obj);
+    if(!all.length){ setStatus($('batchStatus'),'bad','Nothing to export yet — add some invoices first.'); return; }
+    const chosen = $('batchInclInvalid').checked ? all : all.filter(b=>b.ok);
+    if(!chosen.length){ setStatus($('batchStatus'),'bad','No valid invoices to export. Fix the blockers, or tick “include invalid”.'); return; }
+    const list=chosen.map(b=>b.obj); const txt=JSON.stringify(list,null,2); const bytes=new Blob([txt]).size;
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));
+    a.download='einvoice_bulk_'+list.length+'.json'; a.click();
+    const warn = bytes>2*1024*1024 ? ' ⚠ over 2 MB — split into smaller batches.' : (list.length>500?' ⚠ large batch — the portal may cap invoices per file.':'');
+    setStatus($('batchStatus'),'ok',`Downloaded <strong>${list.length}</strong> invoice(s) as one JSON (${(bytes/1024).toFixed(1)} KB).${warn} Portal → E-Invoice → Bulk Upload.`);
+  };
+})();
+
+/* ============================ STICKY SUMMARY BAR ============================ */
+function updateSumBar(t,fails){
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  set('sbDoc', (val('docNo')||'—'));
+  set('sbAss','₹'+fmt(t.ass));
+  set('sbTaxK', t.inter?'IGST':'CGST+SGST');
+  set('sbTax','₹'+fmt(t.inter?t.ig:r2(t.cg+t.sg)));
+  set('sbTot','₹'+fmt(t.totInv));
+  const g=document.getElementById('sbGate');
+  if(g){ if(fails===0){g.className='sb-gate ok';g.textContent='✓ Ready';} else {g.className='sb-gate bad';g.textContent=fails+' blocker'+(fails>1?'s':'');} }
+}
+function fitSticky(){
+  const hd=document.querySelector('header.app'), sb=document.getElementById('sumBar');
+  const h=hd?Math.round(hd.getBoundingClientRect().height):58;
+  document.documentElement.style.setProperty('--hdr-h',h+'px');
+  const sbh=sb?Math.round(sb.getBoundingClientRect().height):44;
+  document.documentElement.style.setProperty('--sticky-top',(h+sbh+14)+'px');
+}
+window.addEventListener('resize',fitSticky);
+
+/* ============================ ADMIN — template editor ============================ */
+const ADMIN_HASH='aada56cf600556a1be1ca7be4bb37fa712c5f2851f2c2263f2ae80b8bddcb63b';
+async function _sha256(s){
+  if(!(crypto&&crypto.subtle)) return '';
+  const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+const ADM_TXT={admLogoUrl:'logoUrl',admTitle:'title',admOrient:'orientation',admAccent:'accent',admBankName:'bankName',admBankAcc:'bankAcc',admSwift:'swift',admIfsc:'ifsc',admTermsPay:'termsPay',admDelivery:'deliveryTerms',admCin:'cin',admPhone:'phone',admEmail:'email',admWebsite:'website',admSignatory:'signatory',admReverse:'reverseNote',admCert:'certText',admTermsSale:'termsSale'};
+const ADM_CHK={admShowCopies:'showCopies',admShowIrn:'showIrn',admShowQr:'showQr',admShowBank:'showBank',admShowCert:'showCert'};
+const ADM_COL=['itemNo','external','hsn','unit','qty','price','taxComp','valPct','taxAmt','total'];
+function admPopulate(){
+  for(const id in ADM_TXT){ const e=$(id); if(e)e.value=TPL[ADM_TXT[id]]||''; }
+  for(const id in ADM_CHK){ const e=$(id); if(e)e.checked=!!TPL[ADM_CHK[id]]; }
+  ADM_COL.forEach(k=>{ const e=$('admcol_'+k); if(e)e.checked=TPL.cols[k]!==false; });
+  
+  // Format Designer fields
+  $('admFontFamily').value = TPL.fontFamily || 'helvetica';
+  $('admFontSizeTitle').value = TPL.fontSizeTitle || 22;
+  $('admFontSizeHeader').value = TPL.fontSizeHeader || 8.6;
+  $('admFontSizeTableHead').value = TPL.fontSizeTableHead || 7;
+  $('admFontSizeTableBody').value = TPL.fontSizeTableBody || 7;
+  $('admMarginLeft').value = TPL.marginPageLeft || 28;
+  $('admMarginRight').value = TPL.marginPageRight || 28;
+  $('admMarginTop').value = TPL.marginPageTop || 24;
+  $('admMarginBottom').value = TPL.marginPageBottom || 20;
+  $('admCellPaddingTable').value = TPL.cellPaddingTable || 2.3;
+  $('admTableTheme').value = TPL.tableTheme || 'plain';
+  $('admShowBottomBreakdown').value = TPL.showBottomBreakdown ? 'Y' : 'N';
+  $('admBankOffset').value = TPL.bankOffset || 110;
+  
+  // Column Widths
+  const colKeys = ['slNo','itemNo','external','desc','hsn','unit','qty','price','taxComp','valPct','taxAmt','total'];
+  colKeys.forEach(k => {
+    const e = $('admw_' + k);
+    if (e) e.value = (TPL.colWidths && TPL.colWidths[k] != null) ? TPL.colWidths[k] : TPL_DEFAULTS.colWidths[k];
+  });
+  
+  const pv=$('admLogoPv'), src=TPL.logoData||TPL.logoUrl;
+  if(pv){ if(src){pv.src=src;pv.style.display='';} else pv.style.display='none'; }
+}
+function admApply(){
+  for(const id in ADM_TXT){ const e=$(id); if(e)TPL[ADM_TXT[id]]=e.value; }
+  for(const id in ADM_CHK){ const e=$(id); if(e)TPL[ADM_CHK[id]]=e.checked; }
+  ADM_COL.forEach(k=>{ const e=$('admcol_'+k); if(e)TPL.cols[k]=e.checked; });
+  
+  // Format Designer fields
+  TPL.fontFamily = $('admFontFamily').value;
+  TPL.fontSizeTitle = parseInt($('admFontSizeTitle').value) || 22;
+  TPL.fontSizeHeader = parseFloat($('admFontSizeHeader').value) || 8.6;
+  TPL.fontSizeTableHead = parseFloat($('admFontSizeTableHead').value) || 7;
+  TPL.fontSizeTableBody = parseFloat($('admFontSizeTableBody').value) || 7;
+  TPL.marginPageLeft = parseFloat($('admMarginLeft').value) || 28;
+  TPL.marginPageRight = parseFloat($('admMarginRight').value) || 28;
+  TPL.marginPageTop = parseFloat($('admMarginTop').value) || 24;
+  TPL.marginPageBottom = parseFloat($('admMarginBottom').value) || 20;
+  TPL.cellPaddingTable = parseFloat($('admCellPaddingTable').value) || 2.3;
+  TPL.tableTheme = $('admTableTheme').value;
+  TPL.showBottomBreakdown = $('admShowBottomBreakdown').value === 'Y';
+  TPL.bankOffset = parseFloat($('admBankOffset').value) || 110;
+  
+  // Column Widths
+  if (!TPL.colWidths) TPL.colWidths = {};
+  const colKeys = ['slNo','itemNo','external','desc','hsn','unit','qty','price','taxComp','valPct','taxAmt','total'];
+  colKeys.forEach(k => {
+    const e = $('admw_' + k);
+    if (e) TPL.colWidths[k] = parseFloat(e.value) || TPL_DEFAULTS.colWidths[k];
+  });
+}
+(function wireAdmin(){
+  const M=$('adminModal'); if(!M)return;
+  $('btnAdmin').onclick=()=>{ M.style.display='flex'; $('admPwView').style.display=''; $('admEditView').style.display='none'; $('admPw').value=''; $('admPwErr').textContent=''; setTimeout(()=>$('admPw').focus(),60); };
+  $('admClose').onclick=()=>{ M.style.display='none'; };
+  M.addEventListener('click',e=>{ if(e.target===M)M.style.display='none'; });
+  $('admUnlock').onclick=async()=>{
+    const h=await _sha256($('admPw').value);
+    if(h && h===ADMIN_HASH){ admPopulate(); $('admPwView').style.display='none'; $('admEditView').style.display=''; }
+    else $('admPwErr').textContent = h? 'Wrong password.' : 'Secure context required (open over https) to verify the password.';
+  };
+  $('admPw').addEventListener('keydown',e=>{ if(e.key==='Enter')$('admUnlock').click(); });
+  $('admLogoPick').onclick=()=>$('admLogoFile').click();
+  $('admLogoFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ TPL.logoData=r.result; const pv=$('admLogoPv'); pv.src=r.result; pv.style.display=''; setStatus($('admStatus'),'ok','Logo loaded from file — embeds reliably (overrides URL).'); }; r.readAsDataURL(f); e.target.value=''; };
+  $('admLogoClear').onclick=()=>{ TPL.logoData=''; admPopulate(); setStatus($('admStatus'),'ok','Cleared uploaded logo — will use the URL.'); };
+  $('admSave').onclick=()=>{ admApply(); build(); setStatus($('admStatus'),'ok','Template applied. Use “Generate invoice PDF” to produce it.'); };
+  $('admPreview').onclick=()=>{ admApply(); M.style.display='none'; $('btnGenPdf').click(); };
+  $('admReset').onclick=()=>{ TPL=JSON.parse(JSON.stringify(TPL_DEFAULTS)); admPopulate(); setStatus($('admStatus'),'ok','Reset to defaults (click Apply / Export to keep).'); };
+  $('admExportCfg').onclick=()=>{ admApply(); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(TPL,null,2)],{type:'application/json'})); a.download='einvoice_template_config.json'; a.click(); setStatus($('admStatus'),'ok','Config exported.'); };
+  $('admImportCfg').onclick=()=>$('admCfgFile').click();
+  $('admCfgFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ const o=JSON.parse(r.result); TPL=Object.assign(JSON.parse(JSON.stringify(TPL_DEFAULTS)),o); TPL.cols=Object.assign({},TPL_DEFAULTS.cols,o.cols||{}); TPL.colWidths=Object.assign({},TPL_DEFAULTS.colWidths,o.colWidths||{}); admPopulate(); setStatus($('admStatus'),'ok','Config imported.'); }catch(err){ setStatus($('admStatus'),'bad','Invalid config JSON.'); } }; r.readAsText(f); e.target.value=''; };
+  $('admExportHtml').onclick=()=>{
+    admApply();
+    let html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+    html=html.replace(/<script id="tplOverride">[\s\S]*?<\/script>\s*/,'');
+    const ov='<script id="tplOverride">window.__TPL_OVERRIDE__='+JSON.stringify(TPL)+';<\/script>\n';
+    html=html.replace('</head>', ov+'</head>');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'})); a.download='einvoice_forge_custom.html'; a.click();
+    setStatus($('admStatus'),'ok','Customised HTML exported — open that file and it loads with your template by default.');
+  };
+})();
+
+/* ============================ MOCK PORTAL SIMULATION ============================ */
+let currentPortalCaptcha = "";
+let portalFileObject = null;
+
+function generatePortalCaptcha() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let captcha = "";
+  for (let i = 0; i < 6; i++) {
+    captcha += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  currentPortalCaptcha = captcha;
+  
+  const canvas = $('portalCaptchaCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Background
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  grad.addColorStop(0, '#e8eff7');
+  grad.addColorStop(1, '#cfdff2');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Noise lines
+  ctx.strokeStyle = '#a4c2e6';
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.lineWidth = Math.random() * 2 + 1;
+    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+    ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+    ctx.stroke();
+  }
+  
+  // Noise dots
+  ctx.fillStyle = '#83a5cc';
+  for (let i = 0; i < 30; i++) {
+    ctx.beginPath();
+    ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  
+  // Text
+  ctx.font = 'bold 20px "JetBrains Mono", monospace';
+  ctx.textBaseline = 'middle';
+  const startX = 15;
+  for (let i = 0; i < captcha.length; i++) {
+    ctx.fillStyle = ['#0d2c52', '#1a4f8a', '#103a66', '#081c33'][Math.floor(Math.random() * 4)];
+    ctx.save();
+    const x = startX + i * 18;
+    const y = canvas.height / 2 + (Math.random() * 6 - 3);
+    ctx.translate(x, y);
+    ctx.rotate((Math.random() * 30 - 15) * Math.PI / 180);
+    ctx.fillText(captcha.charAt(i), 0, 0);
+    ctx.restore();
+  }
+}
+
+function handlePortalFile(file) {
+  if (!file.name.endsWith('.json')) {
+    setStatus($('portalStatus'), 'bad', 'Please upload a valid JSON file.');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const list = Array.isArray(data) ? data : [data];
+      
+      if (!list.length || !list[0].DocDtls || !list[0].SellerDtls) {
+        setStatus($('portalStatus'), 'bad', 'Invalid e-Invoice JSON. Make sure it matches the NIC schema.');
+        return;
+      }
+      
+      portalFileObject = list;
+      $('portalLoadSummary').innerHTML = `Loaded <strong>${list.length}</strong> invoice(s).`;
+      
+      const docNos = list.map(x => (x.DocDtls?.No || 'unnamed')).slice(0, 5).join(', ') + (list.length > 5 ? '...' : '');
+      $('portalLoadDetails').textContent = `Invoices: ${docNos}`;
+      $('portalInfoBox').style.display = "block";
+      $('portalActionRow').style.display = "flex";
+      setStatus($('portalStatus'), 'ok', 'JSON loaded. Click "Generate Stamped PDFs" below.');
+    } catch(err) {
+      setStatus($('portalStatus'), 'bad', 'Error parsing JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function initPortalSimulation() {
+  generatePortalCaptcha();
+  
+  $('portalCaptchaRefresh').onclick = () => {
+    generatePortalCaptcha();
+    $('portalCaptchaIn').value = "";
+  };
+  
+  $('portalLoginBtn').onclick = () => {
+    const user = $('portalUser').value.trim();
+    const pw = $('portalPw').value.trim();
+    const cap = $('portalCaptchaIn').value.trim();
+    const err = $('portalLoginErr');
+    
+    if (!user || !pw) {
+      err.textContent = "Please enter username and password.";
+      err.style.display = "block";
+      return;
+    }
+    if (cap.toLowerCase() !== currentPortalCaptcha.toLowerCase()) {
+      err.textContent = "Invalid captcha. Please try again.";
+      err.style.display = "block";
+      generatePortalCaptcha();
+      $('portalCaptchaIn').value = "";
+      return;
+    }
+    
+    err.style.display = "none";
+    $('portalLoginPanel').style.display = "none";
+    $('portalOtpPanel').style.display = "block";
+    $('portalOtpIn').value = "";
+    $('portalOtpIn').focus();
+  };
+  
+  $('portalOtpBack').onclick = () => {
+    $('portalOtpPanel').style.display = "none";
+    $('portalLoginPanel').style.display = "block";
+    generatePortalCaptcha();
+    $('portalCaptchaIn').value = "";
+  };
+  
+  $('portalOtpVerifyBtn').onclick = () => {
+    const otp = $('portalOtpIn').value.trim();
+    const err = $('portalOtpErr');
+    if (otp !== "123456") {
+      err.textContent = "Invalid OTP. Enter 123456 for mock verification.";
+      err.style.display = "block";
+      return;
+    }
+    err.style.display = "none";
+    $('portalOtpPanel').style.display = "none";
+    $('portalUploadPanel').style.display = "block";
+    hideStatus($('portalStatus'));
+  };
+  
+  $('portalLogoutBtn').onclick = () => {
+    $('portalUploadPanel').style.display = "none";
+    $('portalLoginPanel').style.display = "block";
+    portalFileObject = null;
+    $('portalInfoBox').style.display = "none";
+    $('portalActionRow').style.display = "none";
+    $('portalJsonFile').value = "";
+    generatePortalCaptcha();
+    $('portalCaptchaIn').value = "";
+    hideStatus($('portalStatus'));
+  };
+  
+  // Drag and Drop wiring
+  const dropZone = $('portalDropZone');
+  $('portalPickBtn').onclick = () => $('portalJsonFile').click();
+  
+  ['dragenter', 'dragover'].forEach(ev => {
+    dropZone.addEventListener(ev, e => {
+      e.preventDefault();
+      dropZone.classList.add('hot');
+    });
+  });
+  
+  ['dragleave', 'drop'].forEach(ev => {
+    dropZone.addEventListener(ev, e => {
+      e.preventDefault();
+      dropZone.classList.remove('hot');
+    });
+  });
+  
+  dropZone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (file) handlePortalFile(file);
+  });
+  
+  $('portalJsonFile').onchange = e => {
+    const file = e.target.files[0];
+    if (file) handlePortalFile(file);
+    e.target.value = "";
+  };
+  
+  $('portalProcessBtn').onclick = async () => {
+    if (!portalFileObject || !portalFileObject.length) {
+      setStatus($('portalStatus'), 'bad', 'No file loaded.');
+      return;
+    }
+    
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      setStatus($('portalStatus'), 'bad', 'PDF engine (jsPDF) not loaded.');
+      return;
+    }
+    
+    setStatus($('portalStatus'), 'work', `Processing ${portalFileObject.length} invoices…`, true);
+    
+    try {
+      const { jsPDF } = window.jspdf;
+      const copies = [...document.querySelectorAll('.cpchk:checked')].map(c => c.value);
+      if (!copies.length) {
+        setStatus($('portalStatus'), 'bad', 'Select at least one copy in Step 09 options.');
+        return;
+      }
+      
+      const logo = await loadLogo();
+      
+      for (let idx = 0; idx < portalFileObject.length; idx++) {
+        const obj = portalFileObject[idx];
+        const docNo = obj.DocDtls?.No || 'MOCK_INV';
+        const docDt = obj.DocDtls?.Dt || '23/06/2026';
+        const sellerGstin = obj.SellerDtls?.Gstin || '33AABCH9436R1Z0';
+        const buyerGstin = obj.BuyerDtls?.Gstin || '29AAGCK5149P1ZR';
+        const totalVal = obj.ValDtls?.TotInvVal || 0;
+        
+        // Mock IRN
+        const irnSource = sellerGstin + docNo + (obj.DocDtls?.Typ || 'INV') + docDt;
+        const irn = await _sha256(irnSource);
+        
+        const ackNo = 112610000000 + Math.floor(Math.random() * 10000000);
+        
+        const now = new Date();
+        const ackDt = now.getFullYear() + "-" + 
+                      String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+                      String(now.getDate()).padStart(2, '0') + " " + 
+                      String(now.getHours()).padStart(2, '0') + ":" + 
+                      String(now.getMinutes()).padStart(2, '0') + ":" + 
+                      String(now.getSeconds()).padStart(2, '0');
+                      
+        // Mock QR code data
+        const qrPayload = {
+          sellerGstin: sellerGstin,
+          buyerGstin: buyerGstin,
+          docNo: docNo,
+          docDt: docDt,
+          totVal: totalVal,
+          itemsCount: obj.ItemList?.length || 1,
+          hsnCode: obj.ItemList?.[0]?.HsnCd || '84199090',
+          irn: irn,
+          ackNo: ackNo,
+          ackDt: ackDt
+        };
+        const mockQrStr = "eyJhbGciOiJSUzI1NiJ9." + btoa(unescape(encodeURIComponent(JSON.stringify(qrPayload)))) + ".MockSignature";
+        
+        const signed = { irn, qr: mockQrStr, ackNo, ackDt };
+        const qrUrl = await qrDataUrl(mockQrStr);
+        
+        const doc = new jsPDF({unit:'pt',format:'a4',orientation:(TPL.orientation==='portrait'?'portrait':'landscape')});
+        if (typeof doc.autoTable !== 'function') {
+          setStatus($('portalStatus'), 'bad', 'Table plugin not loaded.');
+          return;
+        }
+        
+        copies.forEach((copy, i) => {
+          if (i > 0) doc.addPage();
+          drawInvoice(doc, obj, copy, signed, qrUrl, logo, obj.meta || {});
+        });
+        
+        const filename = docNo.replace(/[^A-Za-z0-9._-]+/g, '_') + '_Stamped.pdf';
+        doc.save(filename);
+      }
+      
+      setStatus($('portalStatus'), 'ok', `Processed and downloaded ${portalFileObject.length} stamped PDF(s) successfully.`);
+    } catch(err) {
+      setStatus($('portalStatus'), 'bad', 'Failed to process PDFs: ' + err.message);
+    }
+  };
+}
+
+/* ============================ DETECT SERVER MODE ============================ */
+(async function detectMode(){
+  try{ const res=await fetch('/api/health',{cache:'no-store'}); if(res.ok){ $('modeBadge').textContent='Server'; $('modeBadge').className='badge dot mode-server'; $('srcPull').disabled=false; } }catch(_){}
+})();
+
+/* ============================ INIT ============================ */
+applySample(); fitSticky(); initPortalSimulation(); window.addEventListener('load',fitSticky); setTimeout(fitSticky,250);
+</script>
+</body>
+</html>
