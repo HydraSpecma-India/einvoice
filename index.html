@@ -118,9 +118,9 @@ input.data{font-family:var(--mono);letter-spacing:.01em}
 
 /* ---------- Items table ---------- */
 .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
-table.items{border-collapse:collapse;width:100%;min-width:760px;font-size:12.5px}
-table.items th{background:var(--panel-2);text-align:left;padding:8px 9px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);white-space:nowrap}
-table.items td{padding:5px 7px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.items{border-collapse:collapse;width:100%;min-width:580px;font-size:12px}
+table.items th{background:var(--panel-2);text-align:left;padding:8px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);white-space:nowrap}
+table.items td{padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
 table.items tr:last-child td{border-bottom:0}
 table.items input{border:1px solid transparent;background:transparent;padding:6px 6px;border-radius:6px;font-size:12.5px}
 table.items input:hover{border-color:var(--line)}
@@ -905,14 +905,14 @@ function renderItems(){
     const line=r2(taxable+(inter?igst:cg+sg));
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td><input class="data" style="width:84px" value="${it.hsn}" data-i="${i}" data-k="hsn" placeholder="6–8 dig"></td>
-      <td><input style="width:210px" value="${it.desc.replace(/"/g,'&quot;')}" data-i="${i}" data-k="desc"></td>
-      <td><input class="data" style="width:52px" value="${it.unit}" data-i="${i}" data-k="unit"></td>
-      <td><input class="num" style="width:66px" value="${it.qty}" data-i="${i}" data-k="qty" inputmode="decimal"></td>
-      <td><input class="num" style="width:84px" value="${it.price}" data-i="${i}" data-k="price" inputmode="decimal"></td>
-      <td><input class="num" style="width:60px" value="${it.disc||0}" data-i="${i}" data-k="disc" inputmode="decimal"></td>
+      <td><input class="data" style="width:65px" value="${it.hsn}" data-i="${i}" data-k="hsn" placeholder="6–8 dig"></td>
+      <td><input style="width:140px" value="${it.desc.replace(/"/g,'&quot;')}" data-i="${i}" data-k="desc"></td>
+      <td><input class="data" style="width:38px" value="${it.unit}" data-i="${i}" data-k="unit"></td>
+      <td><input class="num" style="width:45px" value="${it.qty}" data-i="${i}" data-k="qty" inputmode="decimal"></td>
+      <td><input class="num" style="width:65px" value="${it.price}" data-i="${i}" data-k="price" inputmode="decimal"></td>
+      <td><input class="num" style="width:42px" value="${it.disc||0}" data-i="${i}" data-k="disc" inputmode="decimal"></td>
       <td class="calc">${fmt(taxable)}</td>
-      <td><input class="num" style="width:50px" value="${it.rate}" data-i="${i}" data-k="rate" inputmode="decimal"></td>
+      <td><input class="num" style="width:32px" value="${it.rate}" data-i="${i}" data-k="rate" inputmode="decimal"></td>
       <td class="calc">${fmt(inter?igst:cg)}</td>
       ${inter?'':`<td class="calc">${fmt(sg)}</td>`}
       <td class="calc">${fmt(line)}</td>
@@ -997,7 +997,9 @@ function buildObject(){
       UnitPrice:r2(it.price), TotAmt:r2(it.qty*it.price),
       Discount:r2(it.disc||0), AssAmt:taxable, GstRt:r2(it.rate),
       IgstAmt:igst, CgstAmt:cg, SgstAmt:sg, CesRt:0, CesAmt:0,
-      TotItemVal:r2(taxable+igst+cg+sg)
+      TotItemVal:r2(taxable+igst+cg+sg),
+      _itemNo: it.itemNo || '',
+      _external: it.external || ''
     });
   });
   obj.ValDtls={ AssVal:t.ass, CgstVal:t.cg, SgstVal:t.sg, IgstVal:t.ig, CesVal:0,
@@ -1225,9 +1227,27 @@ function extractParty(T,startRe,stopRe){
   if(!blk.length)return null;
   const out={name:dedupeRepeat(blk[0])};
   const pi=blk.findIndex(l=>/\b\d{6}\b/.test(l));
-  if(pi>=0){ const mm=blk[pi].match(/^(.*?)[, ]*\b(\d{6})\b/);
-    out.loc=((mm&&mm[1])||'').replace(/[,\d]+$/,'').replace(/,+$/,'').trim(); out.pin=mm?mm[2]:'';
-    out.addr=blk.slice(1,pi).join(', ').replace(/,\s*,/g,',').replace(/\s+,/g,',').trim(); }
+  if(pi>=0){
+    const mm=blk[pi].match(/^(.*?)[, ]*\b(\d{6})\b/);
+    const pin=mm?mm[2]:'';
+    let locPart=((mm&&mm[1])||'').trim();
+    let loc = '';
+    let addrPrefix = '';
+    if (locPart.includes(',')) {
+      const parts = locPart.split(',').map(p => p.trim());
+      loc = parts[parts.length - 1];
+      addrPrefix = parts.slice(0, parts.length - 1).join(', ');
+    } else {
+      loc = locPart;
+    }
+    out.loc = loc.replace(/[,\d]+$/,'').replace(/,+$/,'').trim();
+    out.pin = pin;
+    let mainAddr = blk.slice(1,pi).join(', ');
+    if (addrPrefix) {
+      mainAddr = (mainAddr ? mainAddr + ', ' : '') + addrPrefix;
+    }
+    out.addr = mainAddr.replace(/,\s*,/g,',').replace(/\s+,/g,',').trim();
+  }
   else { out.addr=blk.slice(1,4).join(', '); }
   return out;
 }
@@ -1499,7 +1519,7 @@ function loadFromObject(o){ /* load a prebuilt v1.1 object back into the form (o
   if($('yourRef'))$('yourRef').value=m.yourRef||'';
   if($('origInvoiceNo'))$('origInvoiceNo').value=m.origInvoiceNo||'';
   if($('origInvoiceDate'))$('origInvoiceDate').value=m.origInvoiceDate||'';
-  STATE.items=(o.ItemList||[]).map(it=>({hsn:it.HsnCd,desc:it.PrdDesc,unit:it.Unit,qty:it.Qty,price:it.UnitPrice,disc:it.Discount||0,rate:it.GstRt}));
+  STATE.items=(o.ItemList||[]).map(it=>({hsn:it.HsnCd,desc:it.PrdDesc,unit:it.Unit,qty:it.Qty,price:it.UnitPrice,disc:it.Discount||0,rate:it.GstRt,itemNo:it._itemNo||'',external:it._external||''}));
   STATE.rndOverride=o.ValDtls?.RndOffAmt||0; renderItems(); build();
 }
 
@@ -1619,7 +1639,7 @@ const TPL_DEFAULTS={
   cellPaddingTable:2.3,
   tableTheme:'plain',
   showBottomBreakdown:false,
-  metaOffset:99,
+  metaOffset:75,
   partyOffset:82,
   bankOffset:110,
   bankBoxWidth:291.94,
@@ -1713,9 +1733,9 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
     doc.text(line, 289.10, 144.55 + idx * 9.07);
   });
   doc.text(H.Stcd ? stateAbbr(H.Stcd) : '', 289.10, 198.98);
-  doc.text('Contact', 289.10, 202.68);
-  doc.text('India', 289.10, 208.08);
-  doc.text('Telephone', 289.10, 218.28);
+  doc.text('Contact', 289.10, 208.08);
+  doc.text('India', 289.10, 217.18);
+  doc.text('Telephone', 289.10, 226.28);
   
   // Party Metadata (Registration number, Place of supply, State code)
   const drawPartyMeta = (x, p, isConsignee) => {
@@ -1746,12 +1766,12 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
     doc.setFont(fFamily, 'bold'); doc.setFontSize(7.9);
     doc.text('Original invoice number', 586.71, 184.23);
     doc.setFont(fFamily, 'normal');
-    doc.text(meta.origInvoiceNo, 586.71 + (TPL.metaOffset || 99), 184.23);
+    doc.text(meta.origInvoiceNo, 586.71 + (TPL.metaOffset || 75), 184.23);
     if (meta.origInvoiceDate) {
       doc.setFont(fFamily, 'bold');
       doc.text('Original invoice date', 586.71, 198.40);
       doc.setFont(fFamily, 'normal');
-      doc.text(meta.origInvoiceDate, 586.71 + (TPL.metaOffset || 99), 198.40);
+      doc.text(meta.origInvoiceDate, 586.71 + (TPL.metaOffset || 75), 198.40);
     }
   }
   
@@ -1759,7 +1779,7 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
     doc.setFont(fFamily, 'bold'); doc.setFontSize(7.9);
     doc.text(label, 586.71, y);
     doc.setFont(fFamily, 'normal');
-    doc.text(val || '', 586.71 + (TPL.metaOffset || 99), y);
+    doc.text(val || '', 586.71 + (TPL.metaOffset || 75), y);
   };
   drawMetaRow('Sales order', meta.salesOrder, 209.74);
   drawMetaRow('Date', obj.DocDtls.Dt, 221.08);
@@ -1770,8 +1790,7 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
   let rightBottom = 261.04;
   if(TPL.showQr&&qrUrl){
     try{
-      doc.addImage(qrUrl,'PNG',R-74,rightBottom+4,74,74);
-      rightBottom += 80;
+      doc.addImage(qrUrl,'PNG',R-65,175,65,65);
     }catch(_){ }
   }
   
@@ -1825,7 +1844,7 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
       font: fFamily
     },
     columnStyles:colStyles,
-    margin:{left:L,right:W-R},
+    margin:{left:L,right:W-R,bottom:165},
     didDrawCell: function(data) {
       if (TPL.tableTheme === 'plain' || !TPL.tableTheme) {
         const doc = data.doc;
@@ -1863,7 +1882,7 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
   if (TPL.showIrn && signed && signed.irn) {
     doc.setFont(fFamily, 'bold'); doc.setFontSize(7.9);
     doc.text('IRN', 31.18, 456.32);
-    doc.setFont('courier', 'normal'); doc.setFontSize(7.2);
+    doc.setFont('courier', 'normal'); doc.setFontSize(5.5);
     doc.text(signed.irn, 58.00, 456.32);
   }
   
@@ -1961,7 +1980,8 @@ function composeFromParsed(p){
     ass+=taxable; ig+=_ig; cg+=_cg; sg+=_sg;
     return {SlNo:String(i+1),PrdDesc:it.desc,IsServc:"N",HsnCd:it.hsn,Qty:r2(it.qty),Unit:(it.unit||'NOS').toUpperCase(),
       UnitPrice:r2(it.price),TotAmt:r2(it.qty*it.price),Discount:r2(it.disc||0),AssAmt:taxable,GstRt:r2(it.rate),
-      IgstAmt:_ig,CgstAmt:_cg,SgstAmt:_sg,CesRt:0,CesAmt:0,TotItemVal:r2(taxable+_ig+_cg+_sg)};
+      IgstAmt:_ig,CgstAmt:_cg,SgstAmt:_sg,CesRt:0,CesAmt:0,TotItemVal:r2(taxable+_ig+_cg+_sg),
+      _itemNo:it.itemNo||'',_external:it.external||''};
   });
   ass=r2(ass);ig=r2(ig);cg=r2(cg);sg=r2(sg);
   const calcTot=r2(ass+ig+cg+sg), totInv=Math.round(calcTot), rnd=r2(totInv-calcTot);
@@ -2019,16 +2039,56 @@ function applyObjToForm(obj){
   if($('yourRef'))$('yourRef').value=m.yourRef||'';
   if($('origInvoiceNo'))$('origInvoiceNo').value=m.origInvoiceNo||'';
   if($('origInvoiceDate'))$('origInvoiceDate').value=m.origInvoiceDate||'';
-  STATE.items=(obj.ItemList||[]).map(it=>({hsn:it.HsnCd,desc:it.PrdDesc,unit:it.Unit,qty:it.Qty,price:it.UnitPrice,disc:it.Discount||0,rate:it.GstRt}));
+  STATE.items=(obj.ItemList||[]).map(it=>({hsn:it.HsnCd,desc:it.PrdDesc,unit:it.Unit,qty:it.Qty,price:it.UnitPrice,disc:it.Discount||0,rate:it.GstRt,itemNo:it._itemNo||'',external:it._external||''}));
   STATE.rndOverride=(obj.ValDtls||{}).RndOffAmt!=null?obj.ValDtls.RndOffAmt:0;
   renderItems(); build();
 }
 /* side-effect-free PDF text extractor for batch */
 async function batchPdfText(buf){
-  const pdf=await pdfjsLib.getDocument({data:buf}).promise; let out='';
-  for(let p=1;p<=pdf.numPages;p++){ const page=await pdf.getPage(p); const tc=await page.getTextContent(); const rows={};
-    tc.items.forEach(it=>{const y=Math.round(it.transform[5]);(rows[y]=rows[y]||[]).push({x:it.transform[4],s:it.str});});
-    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y=>{ out+=rows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n'; }); out+='\n'; }
+  if(!window.pdfjsLib) throw new Error('pdf.js not loaded');
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let out='';
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p); const tc=await page.getTextContent();
+    const leftRows={};
+    const midRows={};
+    const rightRows={};
+    const globalRows={};
+    tc.items.forEach(it=>{
+      const s=it.str;
+      if(!s.trim())return;
+      const x=it.transform[4];
+      const y=Math.round(it.transform[5]);
+      (globalRows[y]=globalRows[y]||[]).push({x,s});
+      if(x<260){
+        (leftRows[y]=leftRows[y]||[]).push({x,s});
+      }else if(x<550){
+        (midRows[y]=midRows[y]||[]).push({x,s});
+      }else{
+        (rightRows[y]=rightRows[y]||[]).push({x,s});
+      }
+    });
+    out+='=== LEFT COLUMN ===\n';
+    Object.keys(leftRows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=leftRows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    });
+    out+='\n';
+    out+='=== MIDDLE COLUMN ===\n';
+    Object.keys(midRows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=midRows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    });
+    out+='\n';
+    out+='=== RIGHT COLUMN ===\n';
+    Object.keys(rightRows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=rightRows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    });
+    out+='\n';
+    out+='=== GLOBAL ===\n';
+    Object.keys(globalRows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=globalRows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    });
+    out+='\n';
+  }
   return out;
 }
 async function pdfTextFromFile(f){ const buf=await f.arrayBuffer(); return batchPdfText(buf); }
