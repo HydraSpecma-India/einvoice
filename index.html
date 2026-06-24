@@ -510,6 +510,12 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
           <div class="f"><label>Document date<span class="req">*</span></label><input type="date" id="docDt"></div>
           <div class="f"><label>IGST on intra-state</label>
             <select id="igstIntra"><option value="N">No</option><option value="Y">Yes</option></select></div>
+          <div class="f"><label>Sales order</label><input type="text" class="data" id="salesOrder" placeholder="SO-002053"></div>
+          <div class="f"><label>Customer account</label><input type="text" class="data" id="custAcct" placeholder="0508"></div>
+          <div class="f"><label>Requisition</label><input type="text" class="data" id="requisition" placeholder="POIN010019622"></div>
+          <div class="f"><label>Your ref. (PO)</label><input type="text" class="data" id="yourRef" placeholder="Your Ref"></div>
+          <div class="f"><label>Orig. invoice no.</label><input type="text" class="data" id="origInvoiceNo" placeholder="HSING/2847/26"></div>
+          <div class="f"><label>Orig. invoice date</label><input type="date" id="origInvoiceDate"></div>
         </div>
       </div>
     </div>
@@ -996,6 +1002,16 @@ function buildObject(){
   });
   obj.ValDtls={ AssVal:t.ass, CgstVal:t.cg, SgstVal:t.sg, IgstVal:t.ig, CesVal:0,
     Discount:0, OthChrg:0, RndOffAmt:t.rnd, TotInvVal:t.totInv };
+  obj.meta = {
+    salesOrder: val('salesOrder'),
+    custAcct: val('custAcct'),
+    requisition: val('requisition'),
+    yourRef: val('yourRef'),
+    origInvoiceNo: val('origInvoiceNo'),
+    origInvoiceDate: val('origInvoiceDate'),
+    termsPay: STATE.meta?.termsPay || '',
+    deliveryTerms: STATE.meta?.deliveryTerms || ''
+  };
   return obj;
 }
 
@@ -1092,6 +1108,7 @@ drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)handleFile
 $('fileInput').onchange=e=>{const f=e.target.files[0];if(f)handleFile(f);};
 
 async function handleFile(f){
+  clearForm();
   const isPdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name);
   if(isPdf){
     const buf=await f.arrayBuffer(); STATE.pdfBytes=buf.slice(0);
@@ -1105,24 +1122,79 @@ async function handleFile(f){
   }
 }
 
+function clearForm() {
+  ['bGstin', 'bPos', 'bStcd', 'bLgl', 'bTrd', 'bA1', 'bA2', 'bLoc', 'bPin'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  ['hGstin', 'hStcd', 'hLgl', 'hA1', 'hA2', 'hLoc', 'hPin'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  ['salesOrder', 'custAcct', 'requisition', 'yourRef', 'origInvoiceNo', 'origInvoiceDate'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  setShip(false);
+  const docNo = $('docNo'); if (docNo) docNo.value = '';
+  const docDt = $('docDt'); if (docDt) docDt.value = '';
+  const supTyp = $('supTyp'); if (supTyp) supTyp.value = 'B2B';
+  const docTyp = $('docTyp'); if (docTyp) docTyp.value = 'INV';
+  const regRev = $('regRev'); if (regRev) regRev.value = 'N';
+  const igstIntra = $('igstIntra'); if (igstIntra) igstIntra.value = 'N';
+  STATE.items = [];
+  STATE.rndOverride = 0.15;
+  STATE.meta = {};
+  renderItems(); build();
+}
+
 /* ---- PDF text extraction with line reconstruction ---- */
 async function pdfText(buf){
   if(!window.pdfjsLib) throw new Error('pdf.js not loaded');
   const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  // populate page selector for stamping
   const sel=$('qrPage'); sel.innerHTML=''; for(let p=1;p<=pdf.numPages;p++){const o=document.createElement('option');o.value=p-1;o.textContent=p;sel.appendChild(o);}
   let out='';
   for(let p=1;p<=pdf.numPages;p++){
     const page=await pdf.getPage(p); const tc=await page.getTextContent();
-    const rows={};
-    tc.items.forEach(it=>{ const y=Math.round(it.transform[5]); (rows[y]=rows[y]||[]).push({x:it.transform[4],s:it.str}); });
-    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y=>{
-      out+=rows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    const leftRows={};
+    const midRows={};
+    const rightRows={};
+    const globalRows={};
+    tc.items.forEach(it=>{
+      const s=it.str;
+      if(!s.trim())return;
+      const x=it.transform[4];
+      const y=Math.round(it.transform[5]);
+      (globalRows[y]=globalRows[y]||[]).push({x,s});
+      if(x<260){
+        (leftRows[y]=leftRows[y]||[]).push({x,s});
+      }else if(x<550){
+        (midRows[y]=midRows[y]||[]).push({x,s});
+      }else{
+        (rightRows[y]=rightRows[y]||[]).push({x,s});
+      }
+    });
+    out+='=== LEFT COLUMN ===\n';
+    Object.keys(leftRows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=leftRows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    });
+    out+='\n';
+    out+='=== MIDDLE COLUMN ===\n';
+    Object.keys(midRows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=midRows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    });
+    out+='\n';
+    out+='=== RIGHT COLUMN ===\n';
+    Object.keys(rightRows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=rightRows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
+    });
+    out+='\n';
+    out+='=== GLOBAL ===\n';
+    Object.keys(globalRows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out+=globalRows[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim()+'\n';
     });
     out+='\n';
   }
   return out;
 }
+
 async function ocrImage(f){
   if(!window.Tesseract) throw new Error('OCR engine not loaded');
   const url=URL.createObjectURL(f);
@@ -1145,7 +1217,11 @@ function extractParty(T,startRe,stopRe){
   const lines=T.split('\n').map(s=>dedupeRepeat(s)).filter(Boolean);
   const i=lines.findIndex(l=>startRe.test(l)); if(i<0)return null;
   const blk=[];
-  for(let j=i+1;j<lines.length && j<i+14;j++){ const L=lines[j]; if(stopRe.test(L))break; if(L)blk.push(L); }
+  for(let j=i+1;j<lines.length && j<i+14;j++){
+    const L=lines[j];
+    if(L.startsWith('===') || stopRe.test(L))break;
+    if(L)blk.push(L);
+  }
   if(!blk.length)return null;
   const out={name:dedupeRepeat(blk[0])};
   const pi=blk.findIndex(l=>/\b\d{6}\b/.test(l));
@@ -1159,17 +1235,139 @@ function parseInvoiceText(text){
   const T=text.replace(/\u00a0/g,' ');
   const lines=T.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
   const r={items:[]};
-  const gstins=[...T.matchAll(/[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]/g)].map(m=>m[0]);
-  r.sellerGstin=gstins.find(g=>g.startsWith('33'))||gstins[0];
-  r.buyerGstin=gstins.find(g=>g!==r.sellerGstin)||'';
+
+  // Split by columns if the markers are present
+  let leftText = '', midText = '', rightText = '', globalText = T;
+  if (T.includes('=== LEFT COLUMN ===')) {
+    const parts = T.split('=== LEFT COLUMN ===');
+    const rest1 = parts[1].split('=== MIDDLE COLUMN ===');
+    leftText = rest1[0];
+    const rest2 = rest1[1].split('=== RIGHT COLUMN ===');
+    midText = rest2[0];
+    const rest3 = rest2[1].split('=== GLOBAL ===');
+    rightText = rest3[0];
+    globalText = rest3[1];
+  } else {
+    leftText = T;
+    midText = T;
+    rightText = T;
+  }
+
+  // Regex matchers
+  const findGstins = (txt) => {
+    return [...txt.matchAll(/[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}/gi)].map(m => m[0].toUpperCase());
+  };
+
+  const extractStateCode = (colTxt, gstin) => {
+    let m = colTxt.match(/State\s*code\s*[:#]?\s*(\d{1,2})/i);
+    if (m) return m[1].padStart(2, '0');
+    m = colTxt.match(/&\s*(\d{1,2})\b/);
+    if (m) return m[1].padStart(2, '0');
+    
+    const clines = colTxt.split('\n').map(s => s.trim()).filter(Boolean);
+    const scIdx = clines.findIndex(l => /State\s*code/i.test(l));
+    if (scIdx >= 0) {
+      for (let offset of [-1, -2, 1, 2]) {
+        const idx = scIdx + offset;
+        if (idx >= 0 && idx < clines.length) {
+          const numMatch = clines[idx].match(/^\b(\d{1,2})\b$/);
+          if (numMatch) return numMatch[1].padStart(2, '0');
+        }
+      }
+    }
+    if (gstin && /^\d{2}/.test(gstin)) return gstin.slice(0, 2);
+    return '';
+  };
+
+  const rightGstins = findGstins(rightText);
+  const leftGstins = findGstins(leftText);
+  const midGstins = findGstins(midText);
+  const allGstins = findGstins(T);
+
+  const sellerGst = rightGstins[0] || allGstins.find(g => g.startsWith('33')) || allGstins[0] || '';
+  const buyerGst = leftGstins[0] || allGstins.find(g => g !== sellerGst) || '';
+  const shipGst = midGstins[0] || buyerGst || '';
+
+  r.sellerGstin = sellerGst;
+  r.sellerGtin = sellerGst;
+  r.buyerGstin = buyerGst;
+  r.buyerGtin = buyerGst;
+  r.shipGstin = shipGst;
+  r.shipGtin = shipGst;
+
+  r.buyerStcd = extractStateCode(leftText, r.buyerGstin);
+  r.buyerPos = r.buyerStcd;
+  r.shipStcd = extractStateCode(midText, r.shipGstin) || r.buyerStcd;
+
   const inv=T.match(/\bHSIN[GP]\/\d+\/\d+\b/i)||T.match(/\b[A-Z]{3,6}\/\d{2,6}\/\d{2,4}\b/);
   if(inv)r.docNo=inv[0].toUpperCase();
   const dm=T.match(/Date\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i)||T.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
   if(dm)r.docDt=`${dm[3]}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}`;
-  const sc=[...T.matchAll(/State\s*code\s*[:#]?\s*(\d{1,2})/gi)].map(m=>m[1]);
-  if(sc.length){ r.buyerPos=sc[0]; r.buyerStcd=sc[0]; }
-  const g1=re=>{ const m=T.match(re); return m?m[1].trim():''; };
-  r.meta={ salesOrder:g1(/Sales order\s+([A-Za-z0-9\-\/]+)/i), custAcct:g1(/Customer account\s+([A-Za-z0-9\-\/]+)/i), requisition:g1(/Requisition\s+([A-Za-z0-9\-\/]+)/i), termsPay:g1(/Terms of payment\s+([A-Za-z0-9]+)/i), deliveryTerms:g1(/Delivery terms\s+([A-Za-z0-9]+)/i) };
+
+  // Extract Metadata using robust helper
+  const clines = rightText.split('\n').map(s => s.trim()).filter(Boolean);
+  const findMetaValue = (labelRe, valueRe, checkAbove) => {
+    const idx = clines.findIndex(l => labelRe.test(l));
+    if (idx < 0) return '';
+    
+    // 1. Try matching on the same line
+    const matchLine = clines[idx];
+    const labelMatch = matchLine.match(labelRe);
+    if (labelMatch) {
+      const remaining = matchLine.slice(labelMatch.index + labelMatch[0].length).trim();
+      const valMatch = remaining.match(valueRe);
+      if (valMatch && remaining.startsWith(valMatch[0])) {
+        const val = valMatch[0].trim();
+        if (!/Sales order|Customer account|Requisition|Your ref|Original invoice|Value %|Tax amount|Total amount|Date|Terms|Delivery/i.test(val)) {
+          return val;
+        }
+      }
+    }
+
+    // 2. Try the line above (only if checkAbove is true)
+    if (checkAbove && idx > 0) {
+      const val = clines[idx - 1].trim();
+      if (valueRe.test(val) && !/Sales order|Customer account|Requisition|Your ref|Original invoice|Value %|Tax amount|Total amount|Date|Terms|Delivery|Invoice number|Duplicate|Triplicate/i.test(val)) {
+        return val;
+      }
+    }
+
+    // 3. Try the line below
+    if (idx < clines.length - 1) {
+      const val = clines[idx + 1].trim();
+      if (valueRe.test(val) && !/Sales order|Customer account|Requisition|Your ref|Original invoice|Value %|Tax amount|Total amount|Date|Terms|Delivery|Invoice number|Duplicate|Triplicate/i.test(val)) {
+        return val;
+      }
+    }
+    return '';
+  };
+
+  const getOrigInvoiceDate = () => {
+    const dateIdx = clines.findIndex(l => /Orig(?:inal)?\s*invoice\s*date/i.test(l));
+    if (dateIdx >= 0) {
+      const dateRe = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b|\b(\d{4})-(\d{2})-(\d{2})\b/;
+      let dm = clines[dateIdx].match(dateRe);
+      if (!dm && dateIdx > 0) dm = clines[dateIdx - 1].match(dateRe);
+      if (!dm && dateIdx < clines.length - 1) dm = clines[dateIdx + 1].match(dateRe);
+      if (dm) {
+        if (dm[1]) return `${dm[3]}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}`;
+        return dm[0];
+      }
+    }
+    return '';
+  };
+
+  r.meta={
+    salesOrder: findMetaValue(/Sales\s*order/i, /[A-Za-z0-9\-\/]+/, false),
+    custAcct: findMetaValue(/Customer\s*account/i, /[A-Za-z0-9\-\/]+/, false),
+    requisition: findMetaValue(/Requisition/i, /[A-Za-z0-9\-\/]+/, true),
+    yourRef: findMetaValue(/Your\s*ref/i, /[A-Za-z0-9\-\/]+/, false),
+    origInvoiceNo: findMetaValue(/Orig(?:inal)?\s*invoice\s*(?:no|number)?/i, /[A-Za-z0-9\-\/]+/, false),
+    origInvoiceDate: getOrigInvoiceDate(),
+    termsPay: findMetaValue(/Terms\s*of\s*payment/i, /[A-Za-z0-9\-\/]+/, false),
+    deliveryTerms: findMetaValue(/Delivery\s*terms/i, /[A-Za-z0-9\-\/]+/, false)
+  };
+
   // addresses (best effort — verify after)
   const STOP_P=/Registration|Place of supply|^State\b|GSTIN|CIN|Hydraspecma|Tax invoice|Sales order|Customer|Requisition|HSN codes/i;
   const buyer=extractParty(T,/Billed to|Retails of Receiver/i,STOP_P);
@@ -1177,8 +1375,9 @@ function parseInvoiceText(text){
   if(buyer)r.buyer=buyer; if(ship)r.ship=ship;
 
   const STOP=/Total amount|Bank|IFSC|SWIFT|Terms|Note:|Page |HSN codes|Sales order|Customer account|Requisition|Place of supply|Registration|State code|Original|Duplicate|Triplicate|Tax invoice|GSTIN|CIN|Hydraspecma|KK Wind|Building No|Industrial|KIADB|Dabaspet|Billanakote|Bangalore|Contact|Telephone|^India$|Authorised|Certified|TERMS|Ph\./i;
+  const globalLines = T.includes('=== GLOBAL ===') ? T.split('=== GLOBAL ===')[1].split('\n') : lines;
   const items=[]; let cur=null;
-  for(const L of lines){
+  for(const L of globalLines.map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean)){
     const m=L.match(/^(\d{1,3})\s+(.+?)\s+(\d{6,8})\s+([A-Za-z.]+)\s+([\d,]+\.\d{1,3})\s+([\d,]+\.\d{1,5})\s+([\d,]+\.\d{2})$/);
     if(m && UNIT_RE.test(m[4])){
       if(cur)items.push(cur);
@@ -1211,9 +1410,25 @@ function applyExtraction(x,how){
   if(x.docDt)$('docDt').value=x.docDt;
   if(x.buyerPos){$('bPos').value=x.buyerPos;$('bStcd').value=x.buyerStcd||x.buyerPos;}
   if(x.buyer){ if(x.buyer.name)$('bLgl').value=x.buyer.name; if(x.buyer.addr)$('bA1').value=x.buyer.addr; if(x.buyer.loc)$('bLoc').value=x.buyer.loc; if(x.buyer.pin)$('bPin').value=x.buyer.pin; $('bA2').value=''; }
-  if(x.ship){ setShip(true); if(x.ship.name)$('hLgl').value=x.ship.name; if(x.ship.addr)$('hA1').value=x.ship.addr; if(x.ship.loc)$('hLoc').value=x.ship.loc; if(x.ship.pin)$('hPin').value=x.ship.pin; if(x.buyerStcd)$('hStcd').value=x.buyerStcd; if(x.buyerGstin)$('hGstin').value=x.buyerGstin; $('hA2').value=''; }
+  if(x.ship){
+    setShip(true);
+    if(x.ship.name)$('hLgl').value=x.ship.name;
+    if(x.ship.addr)$('hA1').value=x.ship.addr;
+    if(x.ship.loc)$('hLoc').value=x.ship.loc;
+    if(x.ship.pin)$('hPin').value=x.ship.pin;
+    $('hStcd').value=x.shipStcd||x.buyerStcd||'';
+    $('hGstin').value=x.shipGstin||x.buyerGstin||'';
+    $('hA2').value='';
+  }
   if(x.items&&x.items.length){ STATE.items=x.items.map(it=>({hsn:it.hsn,desc:it.desc,unit:it.unit,qty:it.qty,price:it.price,disc:it.disc||0,rate:it.rate,itemNo:it.itemNo||'',external:it.external||''})); }
   STATE.meta=x.meta||{};
+  const m=STATE.meta;
+  if($('salesOrder'))$('salesOrder').value=m.salesOrder||'';
+  if($('custAcct'))$('custAcct').value=m.custAcct||'';
+  if($('requisition'))$('requisition').value=m.requisition||'';
+  if($('yourRef'))$('yourRef').value=m.yourRef||'';
+  if($('origInvoiceNo'))$('origInvoiceNo').value=m.origInvoiceNo||'';
+  if($('origInvoiceDate'))$('origInvoiceDate').value=m.origInvoiceDate||'';
   renderItems();
   { const t=totals(); STATE.rndOverride=r2(Math.round(t.calcTot)-t.calcTot); } // GST round-to-rupee
   renderItems(); build();
@@ -1228,6 +1443,7 @@ $('btnOdata').onclick=()=>{
   let raw=$('odataPaste').value.trim(); if(!raw){setStatus($('srcStatus'),'bad','Paste the OData response first.');return;}
   let arr; try{ const o=JSON.parse(raw); arr=Array.isArray(o)?o:(o.value||o.Lines||[o]); }catch(e){setStatus($('srcStatus'),'bad','Invalid JSON: '+e.message);return;}
   if(!arr.length){setStatus($('srcStatus'),'bad','No rows found.');return;}
+  clearForm();
   mapEntityRows(arr); setStatus($('srcStatus'),'ok',arr.length+' line(s) mapped from OData. Review and download.');
 };
 /* maps the HSINEInvoiceLines entity grain (one row per line, header repeated) */
@@ -1257,6 +1473,7 @@ $('btnPull').onclick=async()=>{
     const res=await fetch('/api/build-json?invoice='+encodeURIComponent(inv));
     if(!res.ok)throw new Error('HTTP '+res.status);
     const data=await res.json();
+    clearForm();
     if(data.rows) mapEntityRows(data.rows); else if(data.object) loadFromObject(data.object);
     setStatus($('srcStatus'),'ok','Pulled '+inv+' from D365. Review and download.');
   }catch(e){ setStatus($('srcStatus'),'bad','Backend not reachable ('+e.message+'). Run app.py and open from localhost.'); }
@@ -1267,6 +1484,21 @@ function loadFromObject(o){ /* load a prebuilt v1.1 object back into the form (o
   const s=o.SellerDtls||{},b=o.BuyerDtls||{};
   $('sGstin').value=s.Gstin||'';$('sStcd').value=s.Stcd||'';$('sLgl').value=s.LglNm||'';$('sA1').value=s.Addr1||'';$('sLoc').value=s.Loc||'';$('sPin').value=s.Pin||'';
   $('bGstin').value=b.Gstin||'';$('bPos').value=b.Pos||'';$('bStcd').value=b.Stcd||'';$('bLgl').value=b.LglNm||'';$('bA1').value=b.Addr1||'';$('bLoc').value=b.Loc||'';$('bPin').value=b.Pin||'';
+  if(o.ShipDtls){
+    setShip(true);
+    const h=o.ShipDtls;
+    $('hGstin').value=h.Gstin||'';$('hStcd').value=h.Stcd||'';$('hLgl').value=h.LglNm||'';$('hA1').value=h.Addr1||'';$('hLoc').value=h.Loc||'';$('hPin').value=h.Pin||'';
+  } else {
+    setShip(false);
+  }
+  const m=o.meta||{};
+  STATE.meta=m;
+  if($('salesOrder'))$('salesOrder').value=m.salesOrder||'';
+  if($('custAcct'))$('custAcct').value=m.custAcct||'';
+  if($('requisition'))$('requisition').value=m.requisition||'';
+  if($('yourRef'))$('yourRef').value=m.yourRef||'';
+  if($('origInvoiceNo'))$('origInvoiceNo').value=m.origInvoiceNo||'';
+  if($('origInvoiceDate'))$('origInvoiceDate').value=m.origInvoiceDate||'';
   STATE.items=(o.ItemList||[]).map(it=>({hsn:it.HsnCd,desc:it.PrdDesc,unit:it.Unit,qty:it.Qty,price:it.UnitPrice,disc:it.Discount||0,rate:it.GstRt}));
   STATE.rndOverride=o.ValDtls?.RndOffAmt||0; renderItems(); build();
 }
@@ -1285,7 +1517,8 @@ $('btnAddRow').onclick=()=>addItem();
 
 /* transaction inputs rebuild */
 ['supTyp','docTyp','regRev','igstIntra','docNo','docDt','sGstin','sStcd','sLgl','sTrd','sA1','sA2','sLoc','sPin','sPh','sEm',
- 'bGstin','bPos','bStcd','bLgl','bTrd','bA1','bA2','bLoc','bPin','hGstin','hStcd','hLgl','hA1','hA2','hLoc','hPin']
+ 'bGstin','bPos','bStcd','bLgl','bTrd','bA1','bA2','bLoc','bPin','hGstin','hStcd','hLgl','hA1','hA2','hLoc','hPin',
+ 'salesOrder','custAcct','requisition','yourRef','origInvoiceNo','origInvoiceDate']
  .forEach(id=>{ const el=$(id); if(el)el.addEventListener('input',()=>{ if(['sStcd','bPos','igstIntra'].includes(id))renderItems(); build(); }); });
 $('shipTog').onclick=()=>{ const on=$('shipBody').style.display==='none'; setShip(on); build(); };
 
@@ -1342,7 +1575,9 @@ $('btnStamp').onclick=async()=>{
 
 /* ============================ GENERATE INVOICE PDF (HSIN template) ============================ */
 const STATE_NAMES={'01':'Jammu & Kashmir','02':'Himachal Pradesh','03':'Punjab','04':'Chandigarh','05':'Uttarakhand','06':'Haryana','07':'Delhi','08':'Rajasthan','09':'Uttar Pradesh','10':'Bihar','11':'Sikkim','12':'Arunachal Pradesh','13':'Nagaland','14':'Manipur','15':'Mizoram','16':'Tripura','17':'Meghalaya','18':'Assam','19':'West Bengal','20':'Jharkhand','21':'Odisha','22':'Chhattisgarh','23':'Madhya Pradesh','24':'Gujarat','25':'Daman & Diu','26':'Dadra & Nagar Haveli','27':'Maharashtra','28':'Andhra Pradesh','29':'Karnataka','30':'Goa','31':'Lakshadweep','32':'Kerala','33':'Tamil Nadu','34':'Puducherry','35':'Andaman & Nicobar','36':'Telangana','37':'Andhra Pradesh','38':'Ladakh','97':'Other Territory'};
+const STATE_ABBRS={'01':'JK','02':'HP','03':'PB','04':'CH','05':'UK','06':'HR','07':'DL','08':'RJ','09':'UP','10':'BR','11':'SK','12':'AR','13':'NL','14':'MN','15':'MZ','16':'TR','17':'ML','18':'AS','19':'WB','20':'JH','21':'OR','22':'CG','23':'MP','24':'GJ','25':'DD','26':'DN','27':'MH','28':'AP','29':'KA','30':'GA','31':'LD','32':'KL','33':'TN','34':'PY','35':'AN','36':'TS','37':'AP','38':'LA','97':'OT'};
 const stateName=c=>STATE_NAMES[String(c).padStart(2,'0')]||('State '+c);
+const stateAbbr=c=>STATE_ABBRS[String(c).padStart(2,'0')]||'';
 const intl=n=>(Math.round((+n||0)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const _ONES=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
 const _TENS=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
@@ -1358,7 +1593,7 @@ async function qrDataUrl(text){ const d=document.createElement('div'); new QRCod
 const TPL_DEFAULTS={
   orientation:'landscape',
   logoUrl:'https://www.hydraspecma.com/javax.faces.resource/2019/HydraSpecma_Logo.png.xhtml?ln=images',
-  logoData:'data:image/png;base64,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',
+  logoData:'data:image/png;base64,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',
   accent:'#e1971a', title:'Tax invoice',
   cin:'U29219TN2007PTC063264',
   bankName:'HDFC BANK', bankAcc:'50200000806241', swift:'HDFCINBBCHE', ifsc:'HDFC0002757',
@@ -1470,11 +1705,17 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
   bAddr.forEach((line, idx) => {
     doc.text(line, 31.18, 144.55 + idx * 9.07);
   });
+  doc.text(B.Stcd ? stateAbbr(B.Stcd) : '', 31.18, 198.98);
+  doc.text('India', 31.18, 208.08);
   
   const hAddr = doc.splitTextToSize([H.Addr1, H.Addr2].filter(Boolean).join(', ') + (H.Loc ? ', ' + H.Loc : '') + (H.Pin ? ' ' + H.Pin : ''), 230);
   hAddr.forEach((line, idx) => {
     doc.text(line, 289.10, 144.55 + idx * 9.07);
   });
+  doc.text(H.Stcd ? stateAbbr(H.Stcd) : '', 289.10, 198.98);
+  doc.text('Contact', 289.10, 202.68);
+  doc.text('India', 289.10, 208.08);
+  doc.text('Telephone', 289.10, 218.28);
   
   // Party Metadata (Registration number, Place of supply, State code)
   const drawPartyMeta = (x, p, isConsignee) => {
@@ -1484,10 +1725,10 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
     
     if (isConsignee) {
       doc.text('State', x, 246.59);
-      doc.text(p.Stcd ? stateName(p.Stcd) : '', x + (TPL.partyOffset || 82), 246.59);
+      doc.text(p.Stcd ? stateAbbr(p.Stcd) : '', x + (TPL.partyOffset || 82), 246.59);
     } else {
       doc.text('Place of supply', x, 246.59);
-      doc.text(p.Pos ? stateName(p.Pos) : '', x + (TPL.partyOffset || 82), 246.59);
+      doc.text(p.Loc || (p.Pos ? stateName(p.Pos) : ''), x + (TPL.partyOffset || 82), 246.59);
     }
     
     doc.text('State code', x, 260.76);
@@ -1731,7 +1972,8 @@ function composeFromParsed(p){
     DocDtls:{Typ:val('docTyp')||'INV',No:(p.docNo||'').toUpperCase(),Dt:p.docDt?ddmmyyyy(p.docDt):''},
     SellerDtls:seller, BuyerDtls:buyer, ItemList:IL,
     ValDtls:{AssVal:ass,CgstVal:cg,SgstVal:sg,IgstVal:ig,CesVal:0,Discount:0,OthChrg:0,RndOffAmt:rnd,TotInvVal:totInv} };
-  if(p.ship){ obj.ShipDtls={Gstin:p.buyerGstin||'',LglNm:p.ship.name||buyer.LglNm,Addr1:p.ship.addr||'',Loc:p.ship.loc||'',Pin:Number(p.ship.pin)||0,Stcd:p.buyerStcd||''}; }
+  if(p.ship){ obj.ShipDtls={Gstin:p.shipGtin||p.buyerGstin||'',LglNm:p.ship.name||buyer.LglNm,Addr1:p.ship.addr||'',Loc:p.ship.loc||'',Pin:Number(p.ship.pin)||0,Stcd:p.shipStcd||p.buyerStcd||''}; }
+  obj.meta = p.meta || {};
   return obj;
 }
 /* Pure validator over an object (single-form gate also delegates here) */
@@ -1769,6 +2011,14 @@ function applyObjToForm(obj){
   $('bLgl').value=B.LglNm||''; $('bTrd').value=B.TrdNm||''; $('bA1').value=B.Addr1||''; $('bA2').value=B.Addr2||''; $('bLoc').value=B.Loc||''; $('bPin').value=B.Pin||'';
   if(obj.ShipDtls){ setShip(true); const H=obj.ShipDtls; $('hGstin').value=H.Gstin||''; $('hStcd').value=H.Stcd||''; $('hLgl').value=H.LglNm||''; $('hA1').value=H.Addr1||''; $('hA2').value=H.Addr2||''; $('hLoc').value=H.Loc||''; $('hPin').value=H.Pin||''; }
   else setShip(false);
+  const m=obj.meta||{};
+  STATE.meta=m;
+  if($('salesOrder'))$('salesOrder').value=m.salesOrder||'';
+  if($('custAcct'))$('custAcct').value=m.custAcct||'';
+  if($('requisition'))$('requisition').value=m.requisition||'';
+  if($('yourRef'))$('yourRef').value=m.yourRef||'';
+  if($('origInvoiceNo'))$('origInvoiceNo').value=m.origInvoiceNo||'';
+  if($('origInvoiceDate'))$('origInvoiceDate').value=m.origInvoiceDate||'';
   STATE.items=(obj.ItemList||[]).map(it=>({hsn:it.HsnCd,desc:it.PrdDesc,unit:it.Unit,qty:it.Qty,price:it.UnitPrice,disc:it.Discount||0,rate:it.GstRt}));
   STATE.rndOverride=(obj.ValDtls||{}).RndOffAmt!=null?obj.ValDtls.RndOffAmt:0;
   renderItems(); build();
@@ -2252,8 +2502,18 @@ function initPortalSimulation() {
   try{ const res=await fetch('/api/health',{cache:'no-store'}); if(res.ok){ $('modeBadge').textContent='Server'; $('modeBadge').className='badge dot mode-server'; $('srcPull').disabled=false; } }catch(_){}
 })();
 
+function initHeaderLogo() {
+  const logoSrc = TPL.logoData || TPL.logoUrl;
+  if (logoSrc) {
+    const wm = document.querySelector('.wm');
+    if (wm) {
+      wm.innerHTML = `<img src="${logoSrc}" alt="Logo" style="height:24px; align-self:center; margin-right:4px; filter: brightness(0) invert(1) brightness(1.2);"><b>e&#8209;Invoice</b><small>India · GST IRP</small>`;
+    }
+  }
+}
+
 /* ============================ INIT ============================ */
-applySample(); fitSticky(); initPortalSimulation(); window.addEventListener('load',fitSticky); setTimeout(fitSticky,250);
+applySample(); fitSticky(); initHeaderLogo(); initPortalSimulation(); window.addEventListener('load',fitSticky); setTimeout(fitSticky,250);
 </script>
 </body>
 </html>
