@@ -638,8 +638,8 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
       <div class="bd">
         <div class="jhead">
           <div class="seg">
-            <button class="on" id="segSingle">Single</button>
-            <button id="segBulk">Bulk array</button>
+            <button id="segSingle">Single</button>
+            <button class="on" id="segBulk">Bulk array</button>
           </div>
           <span class="hint">v1.1 · NIC schema</span>
         </div>
@@ -1040,7 +1040,7 @@ function renderGate(checks){
 }
 
 /* ============================ JSON VIEW ============================ */
-let viewMode='single';
+let viewMode='bulk';
 function highlight(j){
   return j.replace(/&/g,'&amp;').replace(/</g,'&lt;')
    .replace(/"(\\.|[^"\\])*"(\s*:)?/g,m=>/:\s*$/.test(m)?'<span class="k">'+m+'</span>':'<span class="s">'+m+'</span>')
@@ -1528,7 +1528,7 @@ $('segSingle').onclick=()=>{viewMode='single';$('segSingle').classList.add('on')
 $('segBulk').onclick=()=>{viewMode='bulk';$('segBulk').classList.add('on');$('segSingle').classList.remove('on');build();};
 $('btnCopy').onclick=()=>{navigator.clipboard.writeText(STATE.lastJson).then(()=>{$('btnCopy').textContent='Copied ✓';setTimeout(()=>$('btnCopy').textContent='Copy JSON',1400);});};
 $('btnDl').onclick=()=>{
-  const obj=buildObject(); const payload=viewMode==='single'?obj:[obj];
+  const obj=buildObject(); const payload=[obj];
   const name=(val('docNo')||'einvoice').replace(/[^A-Za-z0-9._-]+/g,'_')+(viewMode==='bulk'?'_bulk':'')+'.json';
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
