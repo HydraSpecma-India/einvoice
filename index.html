@@ -14,6 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 :root{
   --ink:#14181c; --ink-2:#2b333a; --muted:#5a636b; --faint:#8a929a;
@@ -52,12 +53,15 @@ header.app{
 .ghost{background:transparent;color:#cdd3d8;border:1px solid #3a424a;border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:500}
 .ghost:hover{border-color:var(--gold);color:#fff}
 
-/* ---------- Layout ---------- */
-main{max-width:1480px;margin:0 auto;padding:20px;display:grid;grid-template-columns:300px minmax(0,1fr) 430px;gap:18px;align-items:start}
-@media(max-width:1280px){main{grid-template-columns:280px minmax(0,1fr)}.col-out{grid-column:1 / -1}}
-@media(max-width:880px){main{grid-template-columns:1fr}.col-mid{order:1}.col-side{order:2}.col-out{order:3}}
+main{max-width:1480px;margin:0 auto;padding:20px;display:grid;grid-template-columns:280px minmax(0,1fr) 400px;gap:16px;align-items:start}
+@media(max-width:1024px){
+  main{grid-template-columns:1fr}
+  .col-mid{order:1}
+  .col-side{order:2}
+  .col-out{order:3}
+}
 .col-out{position:sticky;top:var(--sticky-top,120px)}
-@media(max-width:880px){.col-out{position:static}}
+@media(max-width:1024px){.col-out{position:static}}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .card + .card{margin-top:16px}
@@ -97,6 +101,14 @@ textarea.paste{width:100%;min-height:120px;border:1px solid var(--line-2);border
 .status.work{background:var(--steel-tint);color:#1f4d7a}
 .spin{width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;flex:0 0 auto;margin-top:1px}
 @keyframes sp{to{transform:rotate(360deg)}}
+
+.locked-section {
+  pointer-events: none !important;
+  opacity: 0.4 !important;
+  user-select: none !important;
+  filter: grayscale(80%);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
 
 /* ---------- Forms ---------- */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -358,6 +370,7 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
 .portal-btn.logout:hover {
   background: var(--bad-tint);
 }
+.btn.on{background:var(--ink) !important;color:#fff !important;border-color:var(--ink) !important}
 </style>
 </head>
 <body>
@@ -383,7 +396,7 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
 
 <main>
   <!-- SIDEBAR: parties -->
-  <div class="col-side">
+  <div class="col-side" id="leftCol">
     <div class="card">
       <div class="hd"><span class="ix">03</span><h2>Seller</h2><span class="seller-pill" style="margin-left:auto">HSIN · prefilled</span></div>
       <div class="bd">
@@ -437,6 +450,45 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
 
   <!-- CENTER: intake + items -->
   <div class="col-mid">
+    <!-- Step 00: Local Folder Setup -->
+    <div class="card" id="folderConfigCard" style="border: 2px solid var(--gold); background: var(--gold-tint)">
+      <div class="hd" id="folderConfigHeader" style="cursor: pointer; user-select: none; display: flex; align-items: center;">
+        <span class="ix" style="background:var(--gold); border-color:var(--gold); color:#fff">00</span>
+        <h2>Local Folder Setup</h2>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+          <span id="folderSetupStatus" style="color:var(--bad); font-weight:bold">✕ Not Configured</span>
+          <span id="folderConfigToggleArrow" style="font-size: 12px; color: var(--muted)">▲</span>
+        </div>
+      </div>
+      <div class="bd">
+        <p class="hint" style="margin-top:0; color:var(--ink-2)">Select your local directories for PDF outputs and transaction backups.</p>
+        
+        <!-- PDF Folder Pick -->
+        <div class="f" style="margin-bottom:8px">
+          <label>PDF Output Folder Path (must end with: <span class="mono">Hydra-I-India - Sales Invoice\Inbox</span>)</label>
+          <input type="text" id="targetPdfFolderPath" placeholder="C:\...\Hydra-I-India - Sales Invoice\Inbox" style="width:100%; padding:6px 10px; font-size:12px; border:1px solid var(--line); border-radius:6px">
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:16px">
+          <button class="btn sm gold" id="btnSelectPdfFolder">Select PDF Folder</button>
+          <span class="hint" id="selectedPdfFolderLabel">No folder selected</span>
+        </div>
+        
+        <!-- History Folder Pick -->
+        <div class="f" style="margin-bottom:8px">
+          <label>Transaction History Folder Path (must end with: <span class="mono">Hydra-I-India - Sales Invoice\History Backup</span>)</label>
+          <input type="text" id="targetHistoryFolderPath" placeholder="C:\...\Hydra-I-India - Sales Invoice\History Backup" style="width:100%; padding:6px 10px; font-size:12px; border:1px solid var(--line); border-radius:6px">
+        </div>
+        <div style="display:flex; gap:8px; align-items:center">
+          <button class="btn sm gold" id="btnSelectHistoryFolder">Select History Folder</button>
+          <span class="hint" id="selectedHistoryFolderLabel">No folder selected</span>
+        </div>
+        
+        <div class="status" id="folderErrorStatus" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <div id="midColRest">
+
     <div class="card">
       <div class="hd"><span class="ix">01</span><h2>Source</h2><span class="sub">where the invoice data comes from</span></div>
       <div class="bd">
@@ -621,10 +673,55 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
         <div class="status" id="portalStatus" style="margin-top:12px"></div>
       </div>
     </div>
+
+    <!-- Step 11: Transaction History -->
+    <div class="card" style="margin-top:16px" id="historyCard">
+      <div class="hd">
+        <span class="ix" style="background:var(--steel); border-color:var(--steel); color:#fff">11</span>
+        <h2>Transaction History</h2>
+        <span class="sub" id="historyCount">0 entries</span>
+      </div>
+      <div class="bd">
+        <div class="history-controls" style="display:flex; gap:12px; margin-bottom:12px; align-items:center; flex-wrap:wrap">
+          <div class="f" style="margin:0; display:flex; align-items:center; gap:6px">
+            <label style="text-transform:none; margin:0; font-size:12px; color:var(--muted)">From Date:</label>
+            <input type="date" id="historyFilterFromDate" style="padding:4px 8px; font-size:12px; border:1px solid var(--line); border-radius:6px">
+          </div>
+          <div class="f" style="margin:0; display:flex; align-items:center; gap:6px">
+            <label style="text-transform:none; margin:0; font-size:12px; color:var(--muted)">To Date:</label>
+            <input type="date" id="historyFilterToDate" style="padding:4px 8px; font-size:12px; border:1px solid var(--line); border-radius:6px">
+          </div>
+          <button class="btn sm line" id="btnFilter7Days" type="button" style="padding:4px 8px; font-size:11px">7 Days</button>
+          <button class="btn sm line" id="btnFilter30Days" type="button" style="padding:4px 8px; font-size:11px">30 Days</button>
+          <span style="flex:1"></span>
+          <button class="btn sm gold" id="btnExportExcel" type="button" style="padding:4px 10px; font-size:11px">Export to Excel</button>
+        </div>
+        
+        <div class="tbl-wrap" style="max-height:300px; overflow-y:auto; border:1px solid var(--line); border-radius:8px">
+          <table class="items" id="historyTable" style="margin:0; min-width:100%">
+            <thead>
+              <tr>
+                <th style="font-size:11px; padding:6px">Invoice No.</th>
+                <th style="font-size:11px; padding:6px">Invoice Date</th>
+                <th style="font-size:11px; padding:6px">IRN Number</th>
+                <th style="font-size:11px; padding:6px">Ack Number</th>
+                <th style="font-size:11px; padding:6px">Ack Date</th>
+                <th style="font-size:11px; padding:6px">Buyer GSTIN</th>
+                <th style="font-size:11px; padding:6px">Total Value</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:12px">No transaction history found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
+</div>
 
   <!-- RIGHT: OUTPUT -->
-  <div class="col-out">
+  <div class="col-out" id="rightCol">
     <div class="gate fail" id="gate">
       <div class="glamp">
         <div class="ring" id="gateRing">!</div>
@@ -652,19 +749,27 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
       </div>
     </div>
 
-    <div class="card" style="margin-top:16px">
+    <div class="card" style="margin-top:16px" id="step08Card">
       <div class="hd"><span class="ix">08</span><h2>Phase 2 — stamp IRN + QR</h2></div>
       <div class="bd">
         <div class="hint">Paste the <strong>signed response</strong> the portal returns (contains <span class="mono">Irn</span>, <span class="mono">AckNo</span>, <span class="mono">SignedQRCode</span>). The QR is built from <span class="mono">SignedQRCode</span>, not from the IRN.</div>
-        <textarea class="paste" id="respPaste" placeholder='{"AckNo":112420...,"AckDt":"2026-04-07 ...","Irn":"a5c8...","SignedQRCode":"eyJ..."}'></textarea>
-        <button class="btn sm gold" id="btnParseResp">Read response &amp; build QR</button>
+        <div class="drop" id="respDropZone" style="margin-top:12px">
+          <strong>Drag &amp; Drop response (.json / .zip) here</strong>
+          <div class="hint">Or click the button below / paste in the box below</div>
+          <button class="btn line sm" id="btnUploadResp" type="button" style="margin-top:8px">Upload response (.json / .zip)</button>
+          <input type="file" id="fileRespInput" accept="application/json,application/zip,application/x-zip-compressed" hidden>
+        </div>
+        <textarea class="paste" id="respPaste" style="margin-top:12px" placeholder='{"AckNo":112420...,"AckDt":"2026-04-07 ...","Irn":"a5c8...","SignedQRCode":"eyJ..."}'></textarea>
+        <div style="display:flex; gap:8px; margin-top:8px; align-items:center; flex-wrap:wrap">
+          <button class="btn sm gold" id="btnParseResp">Read response &amp; build QR</button>
+        </div>
         <div class="qbox">
           <div id="qrout"><span class="hint">QR</span></div>
           <div class="qmeta" id="qrMeta"><div class="hint">No IRN loaded yet.</div></div>
         </div>
         <div class="posrow">
           <label style="text-transform:none">QR position</label>
-          <select id="qrPos"><option value="tr">Top-right</option><option value="tl">Top-left</option><option value="br">Bottom-right</option><option value="bl">Bottom-left</option></select>
+          <select id="qrPos"><option value="template">Template position (top-right)</option><option value="tr">Top-right</option><option value="tl">Top-left</option><option value="br">Bottom-right</option><option value="bl">Bottom-left</option></select>
           <label style="text-transform:none">on page</label>
           <select id="qrPage"><option value="0">1</option></select>
           <label style="text-transform:none"><input type="checkbox" id="stampAll" checked> all pages</label>
@@ -674,7 +779,7 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
         <div class="hint" style="margin-top:8px">Needs the original PDF loaded in Source (step 01). For image sources, load the PDF here too.</div>
       </div>
     </div>
-    <div class="card" style="margin-top:16px">
+    <div class="card" style="margin-top:16px" id="step09Card">
       <div class="hd"><span class="ix">09</span><h2>Generate invoice PDF</h2><span style="margin-left:8px;color:var(--gold);font-size:12px;letter-spacing:.08em;text-transform:uppercase">HSIN template</span></div>
       <div class="bd">
         <div class="hint">Rebuilds the invoice in the HydraSpecma layout from the fields above — all copies in <strong>one PDF</strong>. IRN + QR are embedded automatically if a signed response is loaded in step 08.</div>
@@ -893,14 +998,17 @@ function blankItem(){return{hsn:"",desc:"",unit:"PCS",qty:0,price:0,disc:0,rate:
 function addItem(it){ STATE.items.push(it||blankItem()); renderItems(); }
 function renderItems(){
   const inter=isInter();
+  const supTyp = $('supTyp').value;
+  const isZeroTax = (supTyp === 'SEZWOP' || supTyp === 'EXPWOP');
   $('thT1').textContent= inter? 'IGST':'CGST';
   $('thT2').style.display= inter? 'none':'';
   $('taxModeTag').textContent= inter? 'IGST':'CGST + SGST';
   $('taxModeTag').className='taxtag '+(inter?'igst':'cgst');
   const tb=$('itemsBody'); tb.innerHTML='';
   STATE.items.forEach((it,i)=>{
+    const rate = isZeroTax ? 0 : it.rate;
     const taxable=r2(it.qty*it.price - (it.disc||0));
-    const tax=r2(taxable*it.rate/100);
+    const tax = isZeroTax ? 0 : r2(taxable*rate/100);
     const igst=inter?tax:0, cg=inter?0:r2(tax/2), sg=inter?0:r2(tax-cg);
     const line=r2(taxable+(inter?igst:cg+sg));
     const tr=document.createElement('tr');
@@ -912,7 +1020,7 @@ function renderItems(){
       <td><input class="num" style="width:65px" value="${it.price}" data-i="${i}" data-k="price" inputmode="decimal"></td>
       <td><input class="num" style="width:42px" value="${it.disc||0}" data-i="${i}" data-k="disc" inputmode="decimal"></td>
       <td class="calc">${fmt(taxable)}</td>
-      <td><input class="num" style="width:32px" value="${it.rate}" data-i="${i}" data-k="rate" inputmode="decimal"></td>
+      <td><input class="num" style="width:32px" value="${rate}" data-i="${i}" data-k="rate" inputmode="decimal" ${isZeroTax ? 'disabled' : ''}></td>
       <td class="calc">${fmt(inter?igst:cg)}</td>
       ${inter?'':`<td class="calc">${fmt(sg)}</td>`}
       <td class="calc">${fmt(line)}</td>
@@ -931,9 +1039,13 @@ function renderItems(){
 /* lightweight recompute of calc cells without losing focus */
 function refreshCalcsOnly(){
   const inter=isInter();
+  const supTyp = $('supTyp').value;
+  const isZeroTax = (supTyp === 'SEZWOP' || supTyp === 'EXPWOP');
   [...$('itemsBody').children].forEach((tr,i)=>{
     const it=STATE.items[i]; const taxable=r2(it.qty*it.price-(it.disc||0));
-    const tax=r2(taxable*it.rate/100); const igst=inter?tax:0, cg=inter?0:r2(tax/2), sg=inter?0:r2(tax-cg);
+    const rate = isZeroTax ? 0 : it.rate;
+    const tax = isZeroTax ? 0 : r2(taxable*rate/100);
+    const igst=inter?tax:0, cg=inter?0:r2(tax/2), sg=inter?0:r2(tax-cg);
     const line=r2(taxable+(inter?igst:cg+sg));
     const calc=tr.querySelectorAll('.calc');
     calc[0].textContent=fmt(taxable);
@@ -944,8 +1056,14 @@ function refreshCalcsOnly(){
 }
 function totals(){
   const inter=isInter(); let ass=0,ig=0,cg=0,sg=0;
-  STATE.items.forEach(it=>{ const t=r2(it.qty*it.price-(it.disc||0)); const tax=r2(t*it.rate/100);
-    ass+=t; if(inter)ig+=tax; else{const c=r2(tax/2);cg+=c;sg+=r2(tax-c);} });
+  const supTyp = $('supTyp').value;
+  const isZeroTax = (supTyp === 'SEZWOP' || supTyp === 'EXPWOP');
+  STATE.items.forEach(it=>{
+    const rate = isZeroTax ? 0 : it.rate;
+    const t=r2(it.qty*it.price-(it.disc||0));
+    const tax = isZeroTax ? 0 : r2(t*rate/100);
+    ass+=t; if(inter)ig+=tax; else{const c=r2(tax/2);cg+=c;sg+=r2(tax-c);}
+  });
   ass=r2(ass);ig=r2(ig);cg=r2(cg);sg=r2(sg);
   const calcTot=r2(ass+ig+cg+sg);
   const rnd = (STATE.rndOverride!=null)? r2(STATE.rndOverride) : 0;
@@ -987,15 +1105,17 @@ function buildObject(){
     const sh={Gstin:val('hGstin'),LglNm:val('hLgl')||val('bLgl'),Addr1:val('hA1'),Loc:val('hLoc'),Pin:Number(val('hPin'))||0,Stcd:val('hStcd')};
     if(val('hA2'))sh.Addr2=val('hA2'); obj.ShipDtls=sh;
   }
+  const isZeroTax = (val('supTyp') === 'SEZWOP' || val('supTyp') === 'EXPWOP');
   STATE.items.forEach((it,i)=>{
+    const rate = isZeroTax ? 0 : it.rate;
     const taxable=r2(it.qty*it.price-(it.disc||0));
-    const tax=r2(taxable*it.rate/100);
+    const tax = isZeroTax ? 0 : r2(taxable*rate/100);
     const igst=t.inter?tax:0, cg=t.inter?0:r2(tax/2), sg=t.inter?0:r2(tax-cg);
     obj.ItemList.push({
       SlNo:String(i+1), PrdDesc:it.desc, IsServc:"N", HsnCd:it.hsn,
       Qty:r2(it.qty), Unit:(it.unit||'NOS').toUpperCase(),
       UnitPrice:r2(it.price), TotAmt:r2(it.qty*it.price),
-      Discount:r2(it.disc||0), AssAmt:taxable, GstRt:r2(it.rate),
+      Discount:r2(it.disc||0), AssAmt:taxable, GstRt:r2(rate),
       IgstAmt:igst, CgstAmt:cg, SgstAmt:sg, CesRt:0, CesAmt:0,
       TotItemVal:r2(taxable+igst+cg+sg),
       _itemNo: it.itemNo || '',
@@ -1059,6 +1179,100 @@ function build(){
   const kb=(new Blob([JSON.stringify(payload)]).size/1024).toFixed(1);
   $('jsize').textContent=kb+' KB';
   STATE.lastJson=txt;
+
+  const supTyp = val('supTyp');
+  const isZeroTax = (supTyp === 'SEZWOP' || supTyp === 'EXPWOP');
+  handleZeroTaxWorkflow(isZeroTax);
+}
+
+function handleZeroTaxWorkflow(isZeroTax) {
+  const step08 = $('step08Card');
+  const step09 = $('step09Card');
+  const step10 = $('portalCard');
+  
+  if (isZeroTax) {
+    if (step08) {
+      step08.classList.add('locked-section');
+      let notice = step08.querySelector('.zero-tax-notice');
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.className = 'zero-tax-notice';
+        notice.style.background = 'var(--bad-tint)';
+        notice.style.color = 'var(--bad)';
+        notice.style.padding = '8px 12px';
+        notice.style.fontSize = '12px';
+        notice.style.fontWeight = 'bold';
+        notice.style.borderBottom = '1px solid var(--line)';
+        notice.textContent = '✕ Stamping disabled for SEZWOP / EXPWOP (JSON download only)';
+        step08.insertBefore(notice, step08.firstChild);
+      }
+    }
+    if (step09) {
+      step09.classList.add('locked-section');
+      let notice = step09.querySelector('.zero-tax-notice');
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.className = 'zero-tax-notice';
+        notice.style.background = 'var(--bad-tint)';
+        notice.style.color = 'var(--bad)';
+        notice.style.padding = '8px 12px';
+        notice.style.fontSize = '12px';
+        notice.style.fontWeight = 'bold';
+        notice.style.borderBottom = '1px solid var(--line)';
+        notice.textContent = '✕ PDF generation disabled for SEZWOP / EXPWOP (JSON download only)';
+        step09.insertBefore(notice, step09.firstChild);
+      }
+    }
+    if (step10) {
+      step10.classList.add('locked-section');
+      let notice = step10.querySelector('.zero-tax-notice');
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.className = 'zero-tax-notice';
+        notice.style.background = 'var(--bad-tint)';
+        notice.style.color = 'var(--bad)';
+        notice.style.padding = '8px 12px';
+        notice.style.fontSize = '12px';
+        notice.style.fontWeight = 'bold';
+        notice.style.borderBottom = '1px solid var(--line)';
+        notice.textContent = '✕ API Sandbox disabled for SEZWOP / EXPWOP (JSON download only)';
+        step10.insertBefore(notice, step10.firstChild);
+      }
+    }
+  } else {
+    if (step08) {
+      step08.classList.remove('locked-section');
+      const notice = step08.querySelector('.zero-tax-notice');
+      if (notice) notice.remove();
+    }
+    if (step09) {
+      step09.classList.remove('locked-section');
+      const notice = step09.querySelector('.zero-tax-notice');
+      if (notice) notice.remove();
+    }
+    if (step10) {
+      step10.classList.remove('locked-section');
+      const notice = step10.querySelector('.zero-tax-notice');
+      if (notice) notice.remove();
+    }
+  }
+}
+
+function triggerJsonDownload() {
+  const obj = buildObject();
+  const checks = validate(obj);
+  const fails = checks.filter(c => !c.ok && !c.warn).length;
+  if (fails > 0) {
+    console.warn('JSON validation failed, skipping auto-download');
+    return;
+  }
+  const payload = viewMode === 'single' ? obj : [obj];
+  const name = (val('docNo') || 'einvoice').replace(/[^A-Za-z0-9._-]+/g, '_') + (viewMode === 'bulk' ? '_bulk' : '') + '.json';
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
 }
 
 /* ============================ FORM <-> SAMPLE/SETTINGS ============================ */
@@ -1256,6 +1470,20 @@ function parseInvoiceText(text){
   const lines=T.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
   const r={items:[]};
 
+  // Auto-detect supply type from text content (B2B, SEZWOP, EXPWOP, etc.)
+  let detectedSupTyp = 'B2B';
+  const textUpper = T.toUpperCase();
+  if (textUpper.includes('SEZ') && (textUpper.includes('WITHOUT PAYMENT') || textUpper.includes('LUT') || textUpper.includes('WOP') || textUpper.includes('BOND'))) {
+    detectedSupTyp = 'SEZWOP';
+  } else if (textUpper.includes('SEZ') && (textUpper.includes('WITH PAYMENT') || textUpper.includes('WP'))) {
+    detectedSupTyp = 'SEZWP';
+  } else if ((textUpper.includes('EXPORT') || textUpper.includes('EXP.')) && (textUpper.includes('WITHOUT PAYMENT') || textUpper.includes('LUT') || textUpper.includes('WOP') || textUpper.includes('BOND'))) {
+    detectedSupTyp = 'EXPWOP';
+  } else if ((textUpper.includes('EXPORT') || textUpper.includes('EXP.')) && (textUpper.includes('WITH PAYMENT') || textUpper.includes('WP'))) {
+    detectedSupTyp = 'EXPWP';
+  }
+  r.supTyp = detectedSupTyp;
+
   // Split by columns if the markers are present
   let leftText = '', midText = '', rightText = '', globalText = T;
   if (T.includes('=== LEFT COLUMN ===')) {
@@ -1389,7 +1617,7 @@ function parseInvoiceText(text){
   };
 
   // addresses (best effort — verify after)
-  const STOP_P=/Registration|Place of supply|^State\b|GSTIN|CIN|Hydraspecma|Tax invoice|Sales order|Customer|Requisition|HSN codes/i;
+  const STOP_P=/Registration|Place of supply|^State\b|GSTIN|CIN|Hydraspecma|Tax invoice|Sales order|Customer|Requisition|HSN codes|^[A-Z]{2}$|^India$/i;
   const buyer=extractParty(T,/Billed to|Retails of Receiver/i,STOP_P);
   const ship =extractParty(T,/Consignee|Shipped to/i,STOP_P);
   if(buyer)r.buyer=buyer; if(ship)r.ship=ship;
@@ -1424,6 +1652,7 @@ function parseInvoiceText(text){
   return r;
 }
 function applyExtraction(x,how){
+  if(x.supTyp)$('supTyp').value=x.supTyp;
   if(x.sellerGstin)$('sGstin').value=x.sellerGstin;
   if(x.buyerGstin)$('bGstin').value=x.buyerGstin;
   if(x.docNo)$('docNo').value=x.docNo;
@@ -1452,6 +1681,13 @@ function applyExtraction(x,how){
   renderItems();
   { const t=totals(); STATE.rndOverride=r2(Math.round(t.calcTot)-t.calcTot); } // GST round-to-rupee
   renderItems(); build();
+
+  // Trigger automatic download if SEZWOP or EXPWOP
+  const supTyp = val('supTyp');
+  if (supTyp === 'SEZWOP' || supTyp === 'EXPWOP') {
+    triggerJsonDownload();
+  }
+
   const miss=[]; if(!x.buyerGstin)miss.push('buyer GSTIN'); if(!x.items||!x.items.length)miss.push('line items'); if(!x.docNo)miss.push('invoice no');
   const cp=x.copies>1?` ${x.copies} copies detected, merged to ${x.items.length} unique line(s).`:'';
   setStatus($('srcStatus'), miss.length?'bad':'ok',
@@ -1482,6 +1718,12 @@ function mapEntityRows(rows){
   STATE.items=rows.map(rw=>({ hsn:String(rw.HsnCode||''), desc:rw.ProductDescription||'', unit:(rw.Unit||'PCS').toUpperCase(),
     qty:Number(rw.Quantity||0), price:Number(rw.UnitPrice||0), disc:Number(rw.Discount||0), rate:Number(rw.GstRate||0) }));
   renderItems(); build();
+
+  // Trigger automatic download if SEZWOP or EXPWOP
+  const supTyp = val('supTyp');
+  if (supTyp === 'SEZWOP' || supTyp === 'EXPWOP') {
+    triggerJsonDownload();
+  }
 }
 
 /* ---- Pull from D365 (server mode) ---- */
@@ -1539,7 +1781,11 @@ $('btnAddRow').onclick=()=>addItem();
 ['supTyp','docTyp','regRev','igstIntra','docNo','docDt','sGstin','sStcd','sLgl','sTrd','sA1','sA2','sLoc','sPin','sPh','sEm',
  'bGstin','bPos','bStcd','bLgl','bTrd','bA1','bA2','bLoc','bPin','hGstin','hStcd','hLgl','hA1','hA2','hLoc','hPin',
  'salesOrder','custAcct','requisition','yourRef','origInvoiceNo','origInvoiceDate']
- .forEach(id=>{ const el=$(id); if(el)el.addEventListener('input',()=>{ if(['sStcd','bPos','igstIntra'].includes(id))renderItems(); build(); }); });
+ .forEach(id=>{ const el=$(id); if(el)el.addEventListener('input',()=>{
+   if(['sStcd','bPos','igstIntra','supTyp'].includes(id))renderItems();
+   build();
+   if(id==='supTyp' && (el.value==='SEZWOP'||el.value==='EXPWOP')){ triggerJsonDownload(); }
+ }); });
 $('shipTog').onclick=()=>{ const on=$('shipBody').style.display==='none'; setShip(on); build(); };
 
 /* ============================ PHASE 2 — QR + STAMP ============================ */
@@ -1560,6 +1806,42 @@ $('btnParseResp').onclick=()=>{
   $('btnStamp').disabled = !STATE.pdfBytes;
   setStatus($('stampStatus'),'ok', STATE.pdfBytes? 'QR built. Choose a position and stamp the PDF.' : 'QR built. Load the original PDF in step 01 to enable stamping.');
 };
+async function handleRespFile(f) {
+  setStatus($('stampStatus'),'work','Reading uploaded file…',true);
+  try {
+    const isZip = f.name.endsWith('.zip') || f.type === 'application/zip' || f.type === 'application/x-zip-compressed';
+    if (isZip) {
+      if (!window.JSZip) throw new Error('JSZip library not loaded');
+      const zip = await JSZip.loadAsync(await f.arrayBuffer());
+      const jsonFileKey = Object.keys(zip.files).find(key => key.endsWith('.json') && !zip.files[key].dir);
+      if (!jsonFileKey) throw new Error('No .json file found inside the ZIP');
+      const jsonText = await zip.files[jsonFileKey].async('string');
+      $('respPaste').value = jsonText;
+    } else {
+      const jsonText = await f.text();
+      $('respPaste').value = jsonText;
+    }
+    $('btnParseResp').click();
+  } catch(err) {
+    setStatus($('stampStatus'),'bad','Failed to read response file: '+err.message);
+  }
+}
+$('btnUploadResp').onclick=()=>$('fileRespInput').click();
+$('fileRespInput').onchange=async(e)=>{
+  const f=e.target.files[0]; if(!f)return;
+  await handleRespFile(f);
+  e.target.value = '';
+};
+const rdrop = $('respDropZone');
+if (rdrop) {
+  ['dragenter', 'dragover'].forEach(ev => rdrop.addEventListener(ev, e => { e.preventDefault(); rdrop.classList.add('hot'); }));
+  ['dragleave', 'drop'].forEach(ev => rdrop.addEventListener(ev, e => { e.preventDefault(); rdrop.classList.remove('hot'); }));
+  rdrop.addEventListener('drop', e => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if (f) handleRespFile(f);
+  });
+}
 async function qrPngBytes(text){
   const tmp=document.createElement('div'); new QRCode(tmp,{text,width:300,height:300,correctLevel:QRCode.CorrectLevel.M});
   await new Promise(r=>setTimeout(r,60));
@@ -1568,28 +1850,76 @@ async function qrPngBytes(text){
 }
 $('btnStamp').onclick=async()=>{
   if(!STATE.signed||!STATE.pdfBytes){return;}
+  if(!ensureFolderConfigured('stampStatus'))return;
   setStatus($('stampStatus'),'work','Stamping PDF…',true);
   try{
     const {PDFDocument,rgb,StandardFonts}=PDFLib;
     const doc=await PDFDocument.load(STATE.pdfBytes);
     const pages=doc.getPages();
     const font=await doc.embedFont(StandardFonts.Courier);
+    const helv=await doc.embedFont(StandardFonts.Helvetica);
+    const helvBold=await doc.embedFont(StandardFonts.HelveticaBold);
     const png=await doc.embedPng(await qrPngBytes(STATE.signed.qr));
-    const qs=96, m=24, pos=$('qrPos').value;
+    const pos=$('qrPos').value;
+    const isTemplate = pos === 'template';
+    const qs = isTemplate ? 65 : 96;
+    const m = 24;
     const targets = $('stampAll').checked ? pages.map((_,i)=>i) : [Math.min(+$('qrPage').value,pages.length-1)];
     targets.forEach(pi=>{
       const page=pages[pi]; const {width,height}=page.getSize();
-      let qx=width-qs-m, qy=height-qs-m;
-      if(pos==='tl'){qx=m;qy=height-qs-m;} if(pos==='br'){qx=width-qs-m;qy=m;} if(pos==='bl'){qx=m;qy=m;}
+      let qx, qy;
+      if (isTemplate) {
+        const rightMargin = (TPL && TPL.marginPageRight) ? TPL.marginPageRight : 31.18;
+        qx = width - rightMargin - 65;
+        qy = height - 175 - 65;
+      } else {
+        qx = width - qs - m;
+        qy = height - qs - m;
+        if(pos==='tl'){qx=m;qy=height-qs-m;} if(pos==='br'){qx=width-qs-m;qy=m;} if(pos==='bl'){qx=m;qy=m;}
+      }
+      
       page.drawImage(png,{x:qx,y:qy,width:qs,height:qs});
-      const ty=(pos[0]==='t')? qy-12 : qy+qs+4;
-      page.drawText('IRN: '+STATE.signed.irn,{x:m,y:Math.max(8,ty),size:6.5,font,color:rgb(0.08,0.09,0.10),maxWidth:width-2*m});
-      page.drawText('Ack: '+STATE.signed.ackNo+'  '+(STATE.signed.ackDt||''),{x:m,y:Math.max(2,ty-10),size:6.5,font,color:rgb(0.08,0.09,0.10)});
+      
+      if (isTemplate) {
+        const irnY = height - 456.32;
+        page.drawText('IRN', {x: 31.18, y: irnY, size: 7.9, font: helvBold, color: rgb(0.08,0.09,0.10)});
+        page.drawText(STATE.signed.irn, {x: 58.00, y: irnY, size: 5.5, font: font, color: rgb(0.08,0.09,0.10)});
+        
+        page.drawText('Ack No: ' + STATE.signed.ackNo, {x: qx, y: qy - 12, size: 6.5, font: helv, color: rgb(0.08,0.09,0.10)});
+        page.drawText('Ack Date: ' + (STATE.signed.ackDt || ''), {x: qx, y: qy - 20, size: 6.5, font: helv, color: rgb(0.08,0.09,0.10)});
+      } else {
+        const ty=(pos[0]==='t')? qy-12 : qy+qs+4;
+        page.drawText('IRN: '+STATE.signed.irn,{x:m,y:Math.max(8,ty),size:6.5,font,color:rgb(0.08,0.09,0.10),maxWidth:width-2*m});
+        page.drawText('Ack: '+STATE.signed.ackNo+'  '+(STATE.signed.ackDt||''),{x:m,y:Math.max(2,ty-10),size:6.5,font,color:rgb(0.08,0.09,0.10)});
+      }
     });
     const out=await doc.save();
+    const filename=(val('docNo')||'invoice').replace(/[^A-Za-z0-9._-]+/g,'_')+'_IRN.pdf';
+    if (localInboxHandle) {
+      try {
+        const fileHandle = await localInboxHandle.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(out);
+        await writable.close();
+      } catch(err) {
+        setStatus($('stampStatus'), 'bad', 'Failed to save to Inbox folder: ' + err.message);
+        return;
+      }
+    }
     const blob=new Blob([out],{type:'application/pdf'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(val('docNo')||'invoice').replace(/[^A-Za-z0-9._-]+/g,'_')+'_IRN.pdf';a.click();
-    setStatus($('stampStatus'),'ok','Stamped '+targets.length+' page(s). Downloaded.');
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+    setStatus($('stampStatus'),'ok','Stamped '+targets.length+' page(s) and automatically saved to folder.');
+    if (STATE.signed) {
+      addTransactionToHistory(
+        val('docNo') || 'invoice',
+        val('docDt'),
+        STATE.signed.irn,
+        STATE.signed.ackNo,
+        STATE.signed.ackDt,
+        val('bGstin') || 'URP',
+        totals().totInv
+      );
+    }
   }catch(e){ setStatus($('stampStatus'),'bad','Stamp failed: '+e.message); }
 };
 
@@ -1725,17 +2055,24 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
   bAddr.forEach((line, idx) => {
     doc.text(line, 31.18, 144.55 + idx * 9.07);
   });
-  doc.text(B.Stcd ? stateAbbr(B.Stcd) : '', 31.18, 198.98);
-  doc.text('India', 31.18, 208.08);
+  const nextBY = 144.55 + bAddr.length * 9.07;
+  const bStateY = Math.max(198.98, nextBY);
+  doc.text(B.Stcd ? stateAbbr(B.Stcd) : '', 31.18, bStateY);
+  doc.text('India', 31.18, Math.max(208.08, bStateY + 9.10));
   
   const hAddr = doc.splitTextToSize([H.Addr1, H.Addr2].filter(Boolean).join(', ') + (H.Loc ? ', ' + H.Loc : '') + (H.Pin ? ' ' + H.Pin : ''), 230);
   hAddr.forEach((line, idx) => {
     doc.text(line, 289.10, 144.55 + idx * 9.07);
   });
-  doc.text(H.Stcd ? stateAbbr(H.Stcd) : '', 289.10, 198.98);
-  doc.text('Contact', 289.10, 208.08);
-  doc.text('India', 289.10, 217.18);
-  doc.text('Telephone', 289.10, 226.28);
+  const nextHY = 144.55 + hAddr.length * 9.07;
+  const hStateY = Math.max(198.98, nextHY);
+  doc.text(H.Stcd ? stateAbbr(H.Stcd) : '', 289.10, hStateY);
+  const contactY = Math.max(208.08, hStateY + 9.10);
+  doc.text('Contact', 289.10, contactY);
+  const countryY = Math.max(217.18, contactY + 9.10);
+  doc.text('India', 289.10, countryY);
+  const telY = Math.max(226.28, countryY + 9.10);
+  doc.text('Telephone', 289.10, telY);
   
   // Party Metadata (Registration number, Place of supply, State code)
   const drawPartyMeta = (x, p, isConsignee) => {
@@ -1791,6 +2128,11 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
   if(TPL.showQr&&qrUrl){
     try{
       doc.addImage(qrUrl,'PNG',R-65,175,65,65);
+      if (signed && signed.ackNo) {
+        doc.setFont(fFamily, 'normal'); doc.setFontSize(6.5); doc.setTextColor(20, 24, 28);
+        doc.text('Ack No: ' + signed.ackNo, R - 65, 252);
+        doc.text('Ack Date: ' + (signed.ackDt || ''), R - 65, 260);
+      }
     }catch(_){ }
   }
   
@@ -1943,6 +2285,7 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
 
 $('btnGenPdf').onclick=async()=>{
   if(!window.jspdf||!window.jspdf.jsPDF){ setStatus($('genStatus'),'bad','PDF engine (jsPDF) not loaded — check your connection to cdnjs.'); return; }
+  if(!ensureFolderConfigured('genStatus'))return;
   const copies=[...document.querySelectorAll('.cpchk:checked')].map(c=>c.value);
   if(!copies.length){ setStatus($('genStatus'),'bad','Select at least one copy.'); return; }
   setStatus($('genStatus'),'work','Building invoice PDF…',true);
@@ -1955,7 +2298,32 @@ $('btnGenPdf').onclick=async()=>{
     const doc=new jsPDF({unit:'pt',format:'a4',orientation:(TPL.orientation==='portrait'?'portrait':'landscape')});
     if(typeof doc.autoTable!=='function'){ setStatus($('genStatus'),'bad','Table plugin not loaded.'); return; }
     copies.forEach((c,i)=>{ if(i)doc.addPage(); drawInvoice(doc,obj,c,STATE.signed,qrUrl,logo,STATE.meta); });
-    doc.save((val('docNo')||'invoice').replace(/[^A-Za-z0-9._-]+/g,'_')+(STATE.signed?'_IRN':'')+'.pdf');
+    
+    const filename=(val('docNo')||'invoice').replace(/[^A-Za-z0-9._-]+/g,'_')+(STATE.signed?'_IRN':'')+'.pdf';
+    if (localInboxHandle) {
+      try {
+        const arrayBuffer = doc.output('arraybuffer');
+        const fileHandle = await localInboxHandle.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(new Uint8Array(arrayBuffer));
+        await writable.close();
+      } catch(err) {
+        setStatus($('genStatus'), 'bad', 'Failed to save to Inbox folder: ' + err.message);
+        return;
+      }
+    }
+    doc.save(filename);
+    if (STATE.signed) {
+      addTransactionToHistory(
+        obj.DocDtls.No,
+        obj.DocDtls.Dt,
+        STATE.signed.irn,
+        STATE.signed.ackNo,
+        STATE.signed.ackDt,
+        obj.BuyerDtls.Gstin,
+        obj.ValDtls.TotInvVal
+      );
+    }
     let note=copies.length+'-copy '+(TPL.orientation==='portrait'?'portrait':'landscape')+' invoice generated'+(STATE.signed?' with IRN + QR.':'.');
     if(!TPL.logoData && TPL.logoUrl && !logo) note+=' Logo URL blocked (CORS) — upload your logo in Admin to embed it.';
     setStatus($('genStatus'),'ok',note);
@@ -1974,12 +2342,15 @@ function composeFromParsed(p){
   const seller=readSeller();
   const inter = (p.inter!==undefined) ? p.inter : (!!p.buyerStcd && !!seller.Stcd && p.buyerStcd!==seller.Stcd);
   let ass=0,ig=0,cg=0,sg=0;
+  const supTyp = val('supTyp')||'B2B';
+  const isZeroTax = (supTyp === 'SEZWOP' || supTyp === 'EXPWOP');
   const IL=(p.items||[]).map((it,i)=>{
-    const taxable=r2(it.qty*it.price-(it.disc||0)); const tax=r2(taxable*it.rate/100);
+    const rate = isZeroTax ? 0 : it.rate;
+    const taxable=r2(it.qty*it.price-(it.disc||0)); const tax = isZeroTax ? 0 : r2(taxable*rate/100);
     const _ig=inter?tax:0,_cg=inter?0:r2(tax/2),_sg=inter?0:r2(tax-_cg);
     ass+=taxable; ig+=_ig; cg+=_cg; sg+=_sg;
     return {SlNo:String(i+1),PrdDesc:it.desc,IsServc:"N",HsnCd:it.hsn,Qty:r2(it.qty),Unit:(it.unit||'NOS').toUpperCase(),
-      UnitPrice:r2(it.price),TotAmt:r2(it.qty*it.price),Discount:r2(it.disc||0),AssAmt:taxable,GstRt:r2(it.rate),
+      UnitPrice:r2(it.price),TotAmt:r2(it.qty*it.price),Discount:r2(it.disc||0),AssAmt:taxable,GstRt:r2(rate),
       IgstAmt:_ig,CgstAmt:_cg,SgstAmt:_sg,CesRt:0,CesAmt:0,TotItemVal:r2(taxable+_ig+_cg+_sg),
       _itemNo:it.itemNo||'',_external:it.external||''};
   });
@@ -1988,7 +2359,7 @@ function composeFromParsed(p){
   const buyer={Gstin:p.buyerGstin||'URP',LglNm:(p.buyer&&p.buyer.name)||'',Pos:p.buyerPos||p.buyerStcd||'',
     Addr1:(p.buyer&&p.buyer.addr)||'',Loc:(p.buyer&&p.buyer.loc)||'',Pin:Number(p.buyer&&p.buyer.pin)||0,Stcd:p.buyerStcd||''};
   const obj={ Version:"1.1",
-    TranDtls:{TaxSch:"GST",SupTyp:val('supTyp')||'B2B',RegRev:val('regRev')||'N',IgstOnIntra:'N'},
+    TranDtls:{TaxSch:"GST",SupTyp:supTyp,RegRev:val('regRev')||'N',IgstOnIntra:'N'},
     DocDtls:{Typ:val('docTyp')||'INV',No:(p.docNo||'').toUpperCase(),Dt:p.docDt?ddmmyyyy(p.docDt):''},
     SellerDtls:seller, BuyerDtls:buyer, ItemList:IL,
     ValDtls:{AssVal:ass,CgstVal:cg,SgstVal:sg,IgstVal:ig,CesVal:0,Discount:0,OthChrg:0,RndOffAmt:rnd,TotInvVal:totInv} };
@@ -2473,6 +2844,7 @@ function initPortalSimulation() {
   };
   
   $('portalProcessBtn').onclick = async () => {
+    if (!ensureFolderConfigured('portalStatus')) return;
     if (!portalFileObject || !portalFileObject.length) {
       setStatus($('portalStatus'), 'bad', 'No file loaded.');
       return;
@@ -2547,7 +2919,28 @@ function initPortalSimulation() {
         });
         
         const filename = docNo.replace(/[^A-Za-z0-9._-]+/g, '_') + '_Stamped.pdf';
+        if (localInboxHandle) {
+          try {
+            const arrayBuffer = doc.output('arraybuffer');
+            const fileHandle = await localInboxHandle.getFileHandle(filename, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(new Uint8Array(arrayBuffer));
+            await writable.close();
+          } catch(err) {
+            setStatus($('portalStatus'), 'bad', 'Failed to save to Inbox folder: ' + err.message);
+            return;
+          }
+        }
         doc.save(filename);
+        addTransactionToHistory(
+          docNo,
+          docDt,
+          irn,
+          ackNo,
+          ackDt,
+          buyerGstin,
+          totalVal
+        );
       }
       
       setStatus($('portalStatus'), 'ok', `Processed and downloaded ${portalFileObject.length} stamped PDF(s) successfully.`);
@@ -2555,6 +2948,524 @@ function initPortalSimulation() {
       setStatus($('portalStatus'), 'bad', 'Failed to process PDFs: ' + err.message);
     }
   };
+}
+
+/* ============================ LOCAL FOLDER SAVE SETUP ============================ */
+let localInboxHandle = null;
+let localHistoryBackupHandle = null;
+
+// IndexedDB Helper functions to persist DirectoryHandles across sessions
+const DB_NAME = 'hsin_folder_db_v3'; // Changed name to store two handles separately
+const STORE_NAME = 'handles';
+
+function getDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = (e) => {
+      e.target.result.createObjectStore(STORE_NAME);
+    };
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function saveDirectoryHandle(key, handle) {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(handle, key);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Failed to save handle to IndexedDB:', err);
+  }
+}
+
+async function loadDirectoryHandle(key) {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).get(key);
+    const handle = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return handle;
+  } catch (err) {
+    console.error('Failed to load handle from IndexedDB:', err);
+    return null;
+  }
+}
+
+function updateLockState() {
+  const isLocked = !localInboxHandle || !localHistoryBackupHandle;
+  $('leftCol').classList.toggle('locked-section', isLocked);
+  $('midColRest').classList.toggle('locked-section', isLocked);
+  $('rightCol').classList.toggle('locked-section', isLocked);
+}
+
+function toggleFolderConfig() {
+  const bd = document.querySelector('#folderConfigCard .bd');
+  const arrow = $('folderConfigToggleArrow');
+  if (bd.style.display === 'none') {
+    bd.style.display = 'block';
+    arrow.textContent = '▲';
+  } else {
+    bd.style.display = 'none';
+    arrow.textContent = '▼';
+  }
+}
+
+function updateSetupStatus() {
+  const isConfigured = localInboxHandle && localHistoryBackupHandle;
+  const statusEl = $('folderSetupStatus');
+  
+  if (isConfigured) {
+    statusEl.textContent = '✓ Configured';
+    statusEl.style.color = 'var(--ok)';
+    $('folderConfigCard').style.border = '1px solid var(--line)';
+    $('folderConfigCard').style.background = 'var(--surface)';
+    
+    // Auto-collapse after 1 second for premium UX
+    setTimeout(() => {
+      const bd = document.querySelector('#folderConfigCard .bd');
+      const arrow = $('folderConfigToggleArrow');
+      if (bd.style.display !== 'none') {
+        bd.style.display = 'none';
+        arrow.textContent = '▼';
+      }
+    }, 1000);
+  } else {
+    statusEl.textContent = '✕ Not Configured';
+    statusEl.style.color = 'var(--bad)';
+    $('folderConfigCard').style.border = '2px solid var(--gold)';
+    $('folderConfigCard').style.background = 'var(--gold-tint)';
+  }
+  
+  updateLockState();
+}
+
+async function selectPdfFolder() {
+  const errDiv = $('folderErrorStatus');
+  hideStatus(errDiv);
+  
+  if (!window.showDirectoryPicker) {
+    setStatus(errDiv, 'bad', 'File System Access API is not supported in this browser. Please use Chrome or Edge.');
+    return;
+  }
+  
+  try {
+    let handle = null;
+    
+    // Check if we already have a saved handle in IndexedDB
+    const savedHandle = await loadDirectoryHandle('pdf_dir');
+    if (savedHandle && savedHandle.name === "Inbox") {
+      try {
+        const status = await savedHandle.requestPermission({ mode: 'readwrite' });
+        if (status === 'granted') {
+          handle = savedHandle;
+        }
+      } catch (e) {
+        console.warn('Saved PDF handle permission request failed, showing picker:', e);
+      }
+    }
+    
+    if (!handle) {
+      alert('Please select the folder named "Inbox" in the native folder picker.');
+      handle = await window.showDirectoryPicker();
+    }
+    
+    if (handle.name !== "Inbox") {
+      setStatus(errDiv, 'bad', 'Folder selection mismatch! You must select the folder named "Inbox".');
+      return;
+    }
+    
+    // Get the path input, or prompt for it if empty
+    let pathInput = $('targetPdfFolderPath').value.trim();
+    if (!pathInput) {
+      const promptVal = prompt('Please paste the absolute path to this folder (must end with "Hydra-I-India - Sales Invoice\\Inbox"):');
+      if (promptVal === null) return; // User cancelled
+      pathInput = promptVal.trim();
+    }
+    
+    const normalizedPath = pathInput.replace(/\//g, '\\').toLowerCase();
+    const requiredEnding = "hydra-i-india - sales invoice\\inbox";
+    
+    if (!normalizedPath.endsWith(requiredEnding)) {
+      setStatus(errDiv, 'bad', 'Invalid PDF folder path! The path must end with:\nHydra-I-India - Sales Invoice\\Inbox');
+      return;
+    }
+    
+    localInboxHandle = handle;
+    $('targetPdfFolderPath').value = pathInput;
+    localStorage.setItem('hsin_target_pdf_folder_path', pathInput);
+    await saveDirectoryHandle('pdf_dir', handle);
+    
+    $('selectedPdfFolderLabel').innerHTML = `<b>Selected:</b> ${handle.name}`;
+    setStatus(errDiv, 'ok', 'PDF output folder successfully verified!');
+    updateSetupStatus();
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      setStatus(errDiv, 'bad', 'Error accessing folder: ' + err.message);
+    }
+  }
+}
+
+async function selectHistoryFolder() {
+  const errDiv = $('folderErrorStatus');
+  hideStatus(errDiv);
+  
+  if (!window.showDirectoryPicker) {
+    setStatus(errDiv, 'bad', 'File System Access API is not supported in this browser. Please use Chrome or Edge.');
+    return;
+  }
+  
+  try {
+    let handle = null;
+    
+    // Check if we already have a saved handle in IndexedDB
+    const savedHandle = await loadDirectoryHandle('history_dir');
+    if (savedHandle && savedHandle.name === "History Backup") {
+      try {
+        const status = await savedHandle.requestPermission({ mode: 'readwrite' });
+        if (status === 'granted') {
+          handle = savedHandle;
+        }
+      } catch (e) {
+        console.warn('Saved History handle permission request failed, showing picker:', e);
+      }
+    }
+    
+    if (!handle) {
+      alert('Please select the folder named "History Backup" in the native folder picker.');
+      handle = await window.showDirectoryPicker();
+    }
+    
+    if (handle.name !== "History Backup") {
+      setStatus(errDiv, 'bad', 'Folder selection mismatch! You must select the folder named "History Backup".');
+      return;
+    }
+    
+    // Get the path input, or prompt for it if empty
+    let pathInput = $('targetHistoryFolderPath').value.trim();
+    if (!pathInput) {
+      const promptVal = prompt('Please paste the absolute path to this folder (must end with "Hydra-I-India - Sales Invoice\\History Backup"):');
+      if (promptVal === null) return; // User cancelled
+      pathInput = promptVal.trim();
+    }
+    
+    const normalizedPath = pathInput.replace(/\//g, '\\').toLowerCase();
+    const requiredEnding = "hydra-i-india - sales invoice\\history backup";
+    
+    if (!normalizedPath.endsWith(requiredEnding)) {
+      setStatus(errDiv, 'bad', 'Invalid History folder path! The path must end with:\nHydra-I-India - Sales Invoice\\History Backup');
+      return;
+    }
+    
+    localHistoryBackupHandle = handle;
+    $('targetHistoryFolderPath').value = pathInput;
+    localStorage.setItem('hsin_target_history_folder_path', pathInput);
+    await saveDirectoryHandle('history_dir', handle);
+    
+    $('selectedHistoryFolderLabel').innerHTML = `<b>Selected:</b> ${handle.name}`;
+    setStatus(errDiv, 'ok', 'History backup folder successfully verified!');
+    updateSetupStatus();
+    await loadHistoryFromFile();
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      setStatus(errDiv, 'bad', 'Error accessing folder: ' + err.message);
+    }
+  }
+}
+
+async function loadStoredFolderPath() {
+  const storedPdf = localStorage.getItem('hsin_target_pdf_folder_path');
+  const storedHistory = localStorage.getItem('hsin_target_history_folder_path');
+  
+  if (storedPdf) $('targetPdfFolderPath').value = storedPdf;
+  if (storedHistory) $('targetHistoryFolderPath').value = storedHistory;
+  
+  let restoredPdf = false;
+  let restoredHistory = false;
+  
+  // Try to restore PDF handle silently from IndexedDB
+  try {
+    const handle = await loadDirectoryHandle('pdf_dir');
+    if (handle && handle.name === "Inbox") {
+      const permission = await handle.queryPermission({ mode: 'readwrite' });
+      if (permission === 'granted') {
+        localInboxHandle = handle;
+        $('selectedPdfFolderLabel').innerHTML = `<b>Selected:</b> ${handle.name}`;
+        restoredPdf = true;
+      } else {
+        $('selectedPdfFolderLabel').innerHTML = `<b>Saved Folder:</b> ${handle.name} (Click "Select PDF Folder" to grant permission)`;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to restore PDF directory handle on load:', err);
+  }
+  
+  // Try to restore History handle silently from IndexedDB
+  try {
+    const handle = await loadDirectoryHandle('history_dir');
+    if (handle && handle.name === "History Backup") {
+      const permission = await handle.queryPermission({ mode: 'readwrite' });
+      if (permission === 'granted') {
+        localHistoryBackupHandle = handle;
+        $('selectedHistoryFolderLabel').innerHTML = `<b>Selected:</b> ${handle.name}`;
+        restoredHistory = true;
+        await loadHistoryFromFile();
+      } else {
+        $('selectedHistoryFolderLabel').innerHTML = `<b>Saved Folder:</b> ${handle.name} (Click "Select History Folder" to grant permission)`;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to restore History directory handle on load:', err);
+  }
+  
+  if (restoredPdf && restoredHistory) {
+    $('folderSetupStatus').textContent = '✓ Configured';
+    $('folderSetupStatus').style.color = 'var(--ok)';
+    $('folderConfigCard').style.border = '1px solid var(--line)';
+    $('folderConfigCard').style.background = 'var(--surface)';
+    
+    // Collapse card on load if already configured
+    const bd = document.querySelector('#folderConfigCard .bd');
+    const arrow = $('folderConfigToggleArrow');
+    bd.style.display = 'none';
+    arrow.textContent = '▼';
+  } else {
+    if (storedPdf || storedHistory) {
+      $('folderSetupStatus').textContent = '✕ Verification Required';
+      $('folderSetupStatus').style.color = 'var(--bad)';
+    }
+  }
+  
+  updateLockState();
+}
+
+function ensureFolderConfigured(statusElementId) {
+  if (!localInboxHandle || !localHistoryBackupHandle) {
+    const errDiv = $(statusElementId);
+    setStatus(errDiv, 'bad', 'Please set up and verify the Local Folders (Step 00) first.');
+    $('folderConfigCard').scrollIntoView({ behavior: 'smooth' });
+    
+    // Auto expand Step 00
+    const bd = document.querySelector('#folderConfigCard .bd');
+    const arrow = $('folderConfigToggleArrow');
+    if (bd.style.display === 'none') {
+      bd.style.display = 'block';
+      arrow.textContent = '▲';
+    }
+    return false;
+  }
+  return true;
+}
+
+async function loadHistoryFromFile() {
+  if (!localHistoryBackupHandle) return;
+  try {
+    const fileHandle = await localHistoryBackupHandle.getFileHandle('invoice_history.json', { create: true });
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    let fileHistory = [];
+    if (text.trim()) {
+      try {
+        fileHistory = JSON.parse(text);
+      } catch (pe) {
+        console.error('Failed to parse history JSON from file, starting fresh:', pe);
+      }
+    }
+    if (!Array.isArray(fileHistory)) fileHistory = [];
+    
+    // Merge with localStorage history to prevent losing any entries
+    let localHistory = [];
+    try {
+      const raw = localStorage.getItem('hsin_invoice_history');
+      if (raw) localHistory = JSON.parse(raw);
+    } catch (_) {}
+    if (!Array.isArray(localHistory)) localHistory = [];
+    
+    // Merge by uniqueness (docNo + irn)
+    const merged = [...localHistory];
+    fileHistory.forEach(item => {
+      const exists = merged.some(x => x.docNo === item.docNo && x.irn === item.irn);
+      if (!exists) merged.push(item);
+    });
+    
+    localStorage.setItem('hsin_invoice_history', JSON.stringify(merged));
+    renderHistoryTable();
+    
+    // Write back the merged list to the file to keep them in sync
+    await saveHistoryToFile(merged);
+  } catch (err) {
+    console.error('Failed to sync history from file:', err);
+  }
+}
+
+async function saveHistoryToFile(history) {
+  if (!localHistoryBackupHandle) return;
+  try {
+    const fileHandle = await localHistoryBackupHandle.getFileHandle('invoice_history.json', { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(history, null, 2));
+    await writable.close();
+  } catch (err) {
+    console.error('Failed to save history to file:', err);
+  }
+}
+
+$('btnSelectPdfFolder').onclick = selectPdfFolder;
+$('btnSelectHistoryFolder').onclick = selectHistoryFolder;
+$('folderConfigHeader').onclick = toggleFolderConfig;
+
+/* ============================ TRANSACTION HISTORY ============================ */
+function addTransactionToHistory(docNo, docDt, irn, ackNo, ackDt, buyerGstin, totalVal) {
+  let history = [];
+  try {
+    const raw = localStorage.getItem('hsin_invoice_history');
+    if (raw) history = JSON.parse(raw);
+  } catch (_) {}
+  
+  const exists = history.some(item => item.docNo === docNo && item.irn === irn);
+  if (!exists) {
+    const newEntry = {
+      docNo,
+      docDt,
+      irn,
+      ackNo,
+      ackDt,
+      buyerGstin,
+      totalVal,
+      timestamp: Date.now()
+    };
+    history.push(newEntry);
+    localStorage.setItem('hsin_invoice_history', JSON.stringify(history));
+    renderHistoryTable();
+    
+    // Automatic backup directly to file
+    saveHistoryToFile(history);
+  }
+}
+
+function renderHistoryTable() {
+  let history = [];
+  try {
+    const raw = localStorage.getItem('hsin_invoice_history');
+    if (raw) history = JSON.parse(raw);
+  } catch (_) {}
+  
+  history.sort((a,b) => b.timestamp - a.timestamp);
+  
+  const fromVal = $('historyFilterFromDate').value;
+  const toVal = $('historyFilterToDate').value;
+  
+  const fromLimit = fromVal ? new Date(fromVal + 'T00:00:00').getTime() : 0;
+  const toLimit = toVal ? new Date(toVal + 'T23:59:59').getTime() : Infinity;
+  
+  const filtered = history.filter(item => {
+    const ts = item.timestamp || 0;
+    return ts >= fromLimit && ts <= toLimit;
+  });
+  
+  $('historyCount').textContent = `${filtered.length} entries`;
+  
+  const tbody = $('historyBody');
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--muted); padding:12px">No transactions found for the selected date range.</td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = filtered.map(item => `
+    <tr>
+      <td style="padding:6px"><b>${item.docNo}</b></td>
+      <td style="padding:6px">${item.docDt || '—'}</td>
+      <td style="font-family:var(--mono); font-size:11px; padding:6px" title="${item.irn}">${item.irn ? item.irn.slice(0, 16) + '…' : '—'}</td>
+      <td style="padding:6px">${item.ackNo || '—'}</td>
+      <td style="padding:6px">${item.ackDt || '—'}</td>
+      <td style="padding:6px">${item.buyerGstin || '—'}</td>
+      <td style="padding:6px">${item.totalVal ? intl(item.totalVal) : '0.00'}</td>
+    </tr>
+  `).join('');
+}
+
+function exportToExcel() {
+  let history = [];
+  try {
+    const raw = localStorage.getItem('hsin_invoice_history');
+    if (raw) history = JSON.parse(raw);
+  } catch (_) {}
+  
+  history.sort((a,b) => b.timestamp - a.timestamp);
+  
+  const fromVal = $('historyFilterFromDate').value;
+  const toVal = $('historyFilterToDate').value;
+  
+  const fromLimit = fromVal ? new Date(fromVal + 'T00:00:00').getTime() : 0;
+  const toLimit = toVal ? new Date(toVal + 'T23:59:59').getTime() : Infinity;
+  
+  const filtered = history.filter(item => {
+    const ts = item.timestamp || 0;
+    return ts >= fromLimit && ts <= toLimit;
+  });
+  
+  if (!filtered.length) {
+    alert('No transaction records found to export.');
+    return;
+  }
+  
+  let csv = 'Invoice No.,Invoice Date,IRN,Ack No.,Ack Date,Buyer GSTIN,Total Value\r\n';
+  filtered.forEach(item => {
+    const docNo = `"${(item.docNo || '').replace(/"/g, '""')}"`;
+    const docDt = `"${(item.docDt || '').replace(/"/g, '""')}"`;
+    const irn = `"${(item.irn || '').replace(/"/g, '""')}"`;
+    const ackNo = `"${(item.ackNo || '')}"`;
+    const ackDt = `"${(item.ackDt || '').replace(/"/g, '""')}"`;
+    const buyerGstin = `"${(item.buyerGstin || '').replace(/"/g, '""')}"`;
+    const totalVal = `"${(item.totalVal || 0).toFixed(2)}"`;
+    
+    csv += `${docNo},${docDt},${irn},${ackNo},${ackDt},${buyerGstin},${totalVal}\r\n`;
+  });
+  
+  const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `hsin_invoice_history_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+function initHistory() {
+  // Set default filter to last 7 days
+  const today = new Date();
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  
+  $('historyFilterToDate').value = today.toISOString().split('T')[0];
+  $('historyFilterFromDate').value = sevenDaysAgo.toISOString().split('T')[0];
+  
+  $('historyFilterFromDate').onchange = renderHistoryTable;
+  $('historyFilterToDate').onchange = renderHistoryTable;
+  
+  $('btnFilter7Days').onclick = () => {
+    const t = new Date();
+    const s = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    $('historyFilterToDate').value = t.toISOString().split('T')[0];
+    $('historyFilterFromDate').value = s.toISOString().split('T')[0];
+    renderHistoryTable();
+  };
+  
+  $('btnFilter30Days').onclick = () => {
+    const t = new Date();
+    const s = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    $('historyFilterToDate').value = t.toISOString().split('T')[0];
+    $('historyFilterFromDate').value = s.toISOString().split('T')[0];
+    renderHistoryTable();
+  };
+  
+  $('btnExportExcel').onclick = exportToExcel;
+  
+  renderHistoryTable();
 }
 
 /* ============================ DETECT SERVER MODE ============================ */
@@ -2573,7 +3484,7 @@ function initHeaderLogo() {
 }
 
 /* ============================ INIT ============================ */
-applySample(); fitSticky(); initHeaderLogo(); initPortalSimulation(); window.addEventListener('load',fitSticky); setTimeout(fitSticky,250);
+applySample(); fitSticky(); initHeaderLogo(); initPortalSimulation(); initHistory(); loadStoredFolderPath(); window.addEventListener('load',fitSticky); setTimeout(fitSticky,250);
 </script>
 </body>
 </html>
