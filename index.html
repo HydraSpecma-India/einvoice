@@ -1469,20 +1469,7 @@ function parseInvoiceText(text){
   const T=text.replace(/\u00a0/g,' ');
   const lines=T.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
   const r={items:[]};
-
-  // Auto-detect supply type from text content (B2B, SEZWOP, EXPWOP, etc.)
-  let detectedSupTyp = 'B2B';
   const textUpper = T.toUpperCase();
-  if (textUpper.includes('SEZ') && (textUpper.includes('WITHOUT PAYMENT') || textUpper.includes('LUT') || textUpper.includes('WOP') || textUpper.includes('BOND'))) {
-    detectedSupTyp = 'SEZWOP';
-  } else if (textUpper.includes('SEZ') && (textUpper.includes('WITH PAYMENT') || textUpper.includes('WP'))) {
-    detectedSupTyp = 'SEZWP';
-  } else if ((textUpper.includes('EXPORT') || textUpper.includes('EXP.')) && (textUpper.includes('WITHOUT PAYMENT') || textUpper.includes('LUT') || textUpper.includes('WOP') || textUpper.includes('BOND'))) {
-    detectedSupTyp = 'EXPWOP';
-  } else if ((textUpper.includes('EXPORT') || textUpper.includes('EXP.')) && (textUpper.includes('WITH PAYMENT') || textUpper.includes('WP'))) {
-    detectedSupTyp = 'EXPWP';
-  }
-  r.supTyp = detectedSupTyp;
 
   // Split by columns if the markers are present
   let leftText = '', midText = '', rightText = '', globalText = T;
@@ -1635,13 +1622,42 @@ function parseInvoiceText(text){
       cur={slno:+m[1],hsn:m[3],unit:m[4].toUpperCase(),qty:num(m[5]),price:num(m[6]),lineTotal:num(m[7]),desc,itemNo:_itemNo,external:_external,taxAmt:0,comp:null};
       continue;
     }
-    const tm=L.match(/\b(IGST|CGST|SGST|UTGST)\b.*?([\d,]+\.\d{2})\s*$/i);
-    if(tm && cur){ cur.taxAmt+=num(tm[2]); cur.comp=(tm[1].toUpperCase()==='IGST')?'IGST':'INTRA'; continue; }
+    const compMatch=L.match(/\b(IGST|CGST|SGST|UTGST)\b/i);
+    if(compMatch && cur){
+      const nums = L.match(/[\d,]+\.\d{2}/g);
+      if (nums && nums.length > 0) {
+        const taxVal = num(nums[nums.length - 1]); // take the last match as the tax amount
+        cur.taxAmt += taxVal;
+        cur.comp = (compMatch[1].toUpperCase()==='IGST')?'IGST':'INTRA';
+        continue;
+      }
+    }
     if(cur && !cur.taxAmt && !STOP.test(L) && !/^\d{1,3}\s/.test(L) && !/^[\d,]+\.\d{2}/.test(L) && L.length<70){ cur.desc+=' '+L; }
   }
   if(cur)items.push(cur);
-  items.forEach(it=>{ const taxable=r2(it.qty*it.price);
-    it.rate=(it.taxAmt&&taxable)?nearestGstRate(it.taxAmt/taxable*100):18; it.inter=it.comp!=='INTRA'; });
+
+  // Auto-detect supply type based on SEZ/Export indicators and total tax amount
+  let detectedSupTyp = 'B2B';
+  const isSez = textUpper.includes('SEZ') || textUpper.includes('FREE TRADE WAREHOUSE ZONE') || textUpper.includes('FTWZ') || textUpper.includes('FREE TRADE ZONE');
+  const isExport = textUpper.includes('EXPORT') || textUpper.includes('EXP.');
+  const hasZeroTaxKeywords = textUpper.includes('WITHOUT PAYMENT') || textUpper.includes('LUT') || textUpper.includes('WOP') || textUpper.includes('BOND') || textUpper.includes('UNDER BOND');
+  
+  let totalTaxAmt = 0;
+  items.forEach(it => { totalTaxAmt += (it.taxAmt || 0); });
+  
+  if (isSez) {
+    detectedSupTyp = (totalTaxAmt === 0 || hasZeroTaxKeywords) ? 'SEZWOP' : 'SEZWP';
+  } else if (isExport) {
+    detectedSupTyp = (totalTaxAmt === 0 || hasZeroTaxKeywords) ? 'EXPWOP' : 'EXPWP';
+  }
+  r.supTyp = detectedSupTyp;
+
+  const isZeroTax = (detectedSupTyp === 'SEZWOP' || detectedSupTyp === 'EXPWOP');
+  items.forEach(it=>{ 
+    const taxable=r2(it.qty*it.price);
+    it.rate = isZeroTax ? 0 : ((it.taxAmt&&taxable)?nearestGstRate(it.taxAmt/taxable*100):18); 
+    it.inter=it.comp!=='INTRA'; 
+  });
   // dedupe Original/Duplicate/Triplicate copies by signature
   const seen=new Set(); const uniq=[];
   items.forEach(it=>{ const sig=it.slno+'|'+it.hsn+'|'+it.qty+'|'+it.price; if(!seen.has(sig)){seen.add(sig);uniq.push(it);} });
@@ -1781,11 +1797,15 @@ $('btnAddRow').onclick=()=>addItem();
 ['supTyp','docTyp','regRev','igstIntra','docNo','docDt','sGstin','sStcd','sLgl','sTrd','sA1','sA2','sLoc','sPin','sPh','sEm',
  'bGstin','bPos','bStcd','bLgl','bTrd','bA1','bA2','bLoc','bPin','hGstin','hStcd','hLgl','hA1','hA2','hLoc','hPin',
  'salesOrder','custAcct','requisition','yourRef','origInvoiceNo','origInvoiceDate']
- .forEach(id=>{ const el=$(id); if(el)el.addEventListener('input',()=>{
-   if(['sStcd','bPos','igstIntra','supTyp'].includes(id))renderItems();
-   build();
-   if(id==='supTyp' && (el.value==='SEZWOP'||el.value==='EXPWOP')){ triggerJsonDownload(); }
- }); });
+ .forEach(id=>{ const el=$(id); if(el){
+   const handler=()=>{
+     if(['sStcd','bPos','igstIntra','supTyp'].includes(id))renderItems();
+     build();
+     if(id==='supTyp' && (el.value==='SEZWOP'||el.value==='EXPWOP')){ triggerJsonDownload(); }
+   };
+   el.addEventListener('input',handler);
+   el.addEventListener('change',handler);
+ } });
 $('shipTog').onclick=()=>{ const on=$('shipBody').style.display==='none'; setShip(on); build(); };
 
 /* ============================ PHASE 2 — QR + STAMP ============================ */
@@ -2377,8 +2397,10 @@ function checkObject(obj){
   add(!isB2B||GSTIN_RE.test(B.Gstin||''),'Buyer GSTIN valid',isB2B?(B.Gstin||''):'export — n/a');
   add(items.length>0 && items.every(it=>String(it.HsnCd).replace(/\D/g,'').length>=6),'HSN ≥ 6 digits','all lines');
   add(/^\d{2}$/.test(S.Stcd||'')&&/^\d{2}$/.test(B.Stcd||'')&&/^\d{1,2}$/.test(String(B.Pos||'')),'State codes present','seller '+(S.Stcd||'')+' / pos '+(B.Pos||''));
-  const taxOK=inter?(cg===0&&sg===0&&ig>0):(ig===0&&(cg>0||sg>0));
-  add(taxOK,inter?'Inter-state → IGST only':'Intra-state → CGST + SGST',inter?('IGST '+fmt(ig)):('C '+fmt(cg)+' / S '+fmt(sg)));
+  const isZeroTax = (supTyp === 'SEZWOP' || supTyp === 'EXPWOP');
+  const taxOK = isZeroTax ? (cg === 0 && sg === 0 && ig === 0) : (inter ? (cg === 0 && sg === 0 && ig > 0) : (ig === 0 && (cg > 0 || sg > 0)));
+  add(taxOK, isZeroTax ? 'Zero-tax supply → 0 tax values' : (inter ? 'Inter-state → IGST only' : 'Intra-state → CGST + SGST'), 
+      isZeroTax ? 'Tax values are 0' : (inter ? ('IGST ' + fmt(ig)) : ('C ' + fmt(cg) + ' / S ' + fmt(sg))));
   const no=(obj.DocDtls||{}).No||'';
   add(no.length>0&&no.length<=16&&/^[A-Za-z0-9\/\-]+$/.test(no),'Doc no. ok (≤16, A–Z 0–9 / -)',no);
   add(/^\d{2}\/\d{2}\/\d{4}$/.test((obj.DocDtls||{}).Dt||''),'Document date set',(obj.DocDtls||{}).Dt||'');
