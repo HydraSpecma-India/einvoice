@@ -1205,23 +1205,14 @@ function handleZeroTaxWorkflow(isZeroTax) {
   const step09 = $('step09Card');
   const step10 = $('portalCard');
   
+  /* Step 08 (stamping) is ALWAYS available — users need to stamp QR+IRN onto the PDF */
+  if (step08) {
+    step08.classList.remove('locked-section');
+    const notice = step08.querySelector('.zero-tax-notice');
+    if (notice) notice.remove();
+  }
+
   if (isZeroTax) {
-    if (step08) {
-      step08.classList.add('locked-section');
-      let notice = step08.querySelector('.zero-tax-notice');
-      if (!notice) {
-        notice = document.createElement('div');
-        notice.className = 'zero-tax-notice';
-        notice.style.background = 'var(--bad-tint)';
-        notice.style.color = 'var(--bad)';
-        notice.style.padding = '8px 12px';
-        notice.style.fontSize = '12px';
-        notice.style.fontWeight = 'bold';
-        notice.style.borderBottom = '1px solid var(--line)';
-        notice.textContent = '✕ Stamping disabled for SEZWOP / EXPWOP (JSON download only)';
-        step08.insertBefore(notice, step08.firstChild);
-      }
-    }
     if (step09) {
       step09.classList.add('locked-section');
       let notice = step09.querySelector('.zero-tax-notice');
@@ -1255,11 +1246,6 @@ function handleZeroTaxWorkflow(isZeroTax) {
       }
     }
   } else {
-    if (step08) {
-      step08.classList.remove('locked-section');
-      const notice = step08.querySelector('.zero-tax-notice');
-      if (notice) notice.remove();
-    }
     if (step09) {
       step09.classList.remove('locked-section');
       const notice = step09.querySelector('.zero-tax-notice');
