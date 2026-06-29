@@ -381,6 +381,7 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
   <button class="ghost" id="btnAdmin">⚙ Admin</button>
   <button class="ghost" id="btnExport">Save settings</button>
   <button class="ghost" id="btnImport">Load settings</button>
+  <button class="ghost" id="btnUserGuide">📖 User Guide</button>
   <input type="file" id="fileSettings" accept="application/json" hidden>
 </header>
 <div class="sumbar" id="sumBar">
@@ -470,7 +471,6 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
         </div>
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:16px">
           <button class="btn sm gold" id="btnSelectPdfFolder">Select PDF Folder</button>
-          <span class="hint" id="selectedPdfFolderLabel">No folder selected</span>
         </div>
         
         <!-- History Folder Pick -->
@@ -480,7 +480,6 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
         </div>
         <div style="display:flex; gap:8px; align-items:center">
           <button class="btn sm gold" id="btnSelectHistoryFolder">Select History Folder</button>
-          <span class="hint" id="selectedHistoryFolderLabel">No folder selected</span>
         </div>
         
         <div class="status" id="folderErrorStatus" style="margin-top:12px"></div>
@@ -797,6 +796,58 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
   </div>
 </main>
 
+<div class="admwrap" id="guideModal" style="display:none">
+  <div class="admpanel" style="max-width:650px">
+    <div class="admhd"><b>e-Invoice Forge · User Guide</b><button class="admx" id="guideClose">&times;</button></div>
+    <div class="admbd" style="max-height:80vh; overflow-y:auto;">
+      <p style="margin-bottom: 12px; font-size: 13.5px; line-height: 1.5; color: var(--ink-2);">
+        Welcome to the <strong>e-Invoice Forge</strong> client-side application. Follow this simple guide to process your Dynamics 365 Indian invoices:
+      </p>
+      
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--panel);">
+          <h4 style="margin: 0 0 6px; font-family: 'Space Grotesk'; font-size: 13px; color: var(--navy);">Step 00: Local Folder Setup [1-Time Setup]</h4>
+          <p style="margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2);">
+            Click <strong>Select PDF Folder</strong> and <strong>Select History Folder</strong> in the left pane to set your local working directories. This gives the browser permission to read invoices and write signed backup PDFs. Paths are cached in your browser.
+          </p>
+        </div>
+
+        <div style="border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--panel);">
+          <h4 style="margin: 0 0 6px; font-family: 'Space Grotesk'; font-size: 13px; color: var(--navy);">Step 01: Drag &amp; Drop D365 Invoice PDF</h4>
+          <p style="margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2);">
+            Drag your posted sales invoice PDF from D365 and drop it into the central dashboard zone. The client-side parser reads and extracts the bill-to, ship-to, item tables, and tax details instantly.
+          </p>
+        </div>
+
+        <div style="border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--panel);">
+          <h4 style="margin: 0 0 6px; font-family: 'Space Grotesk'; font-size: 13px; color: var(--navy);">Step 02: GST Validation &amp; Editing</h4>
+          <p style="margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2);">
+            Check the validation indicators. If the system flags a 0.01 rounding mismatch between D365 calculations and the IRP engine, or if an address exceeds the 100-character government limit, double-click the item grid cell to correct it on-screen. Special supply configurations (like SEZWOP or EXPWOP) will automatically bypass standard tax rules.
+          </p>
+        </div>
+
+        <div style="border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--panel);">
+          <h4 style="margin: 0 0 6px; font-family: 'Space Grotesk'; font-size: 13px; color: var(--navy);">Step 03: Export JSON &amp; Upload to IRP Portal</h4>
+          <p style="margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2);">
+            Click <strong>Download JSON</strong> to export a schema-compliant JSON file. Log into your government Invoice Registration Portal (IRP), upload the JSON file, and copy the approved response payload text returned by the government portal.
+          </p>
+        </div>
+
+        <div style="border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--panel);">
+          <h4 style="margin: 0 0 6px; font-family: 'Space Grotesk'; font-size: 13px; color: var(--navy);">Step 04: Stamp IRN &amp; QR Code back to PDF</h4>
+          <p style="margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-2);">
+            Paste the government response payload into the stamping field in the right panel. e-Invoice Forge paints the official cryptographic QR code and 64-character IRN string directly onto your original invoice PDF layout, and saves the stamped copy to your local backup folder.
+          </p>
+        </div>
+      </div>
+      
+      <div style="margin-top: 15px; text-align: right;">
+        <button class="btn gold" id="guideCloseOk" style="padding: 6px 16px; font-size: 12px;">Got It!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="admwrap" id="adminModal" style="display:none">
   <div class="admpanel">
     <div class="admhd"><b>Invoice template · Admin</b><button class="admx" id="admClose">&times;</button></div>
@@ -926,7 +977,14 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
           <h4>Notes &amp; terms</h4>
           <div class="f"><label>Reverse-charge note</label><textarea id="admReverse" rows="2"></textarea></div>
           <div class="f"><label>Certification text</label><textarea id="admCert" rows="3"></textarea></div>
-          <div class="f"><label>Terms of sale</label><textarea id="admTermsSale" rows="2"></textarea></div>
+        </div>
+
+        <div class="admsec admwide" style="margin-top: 10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h4 style="margin:0; font-family:'Space Grotesk'; font-size:13px; color:var(--ink)">e-Invoice GSP Comparison &amp; Forge presentation</h4>
+            <button class="btn sm gold" id="admPresent" style="background:#76B837; border-color:#76B837; padding: 4px 12px; font-size: 11px;">Present Fullscreen</button>
+          </div>
+          <iframe id="admPresIframe" src="about:blank" style="width:100%; height:320px; border:1px solid var(--line); border-radius:8px; background:var(--panel);"></iframe>
         </div>
       </div>
 
@@ -2684,6 +2742,34 @@ function admApply(){
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'})); a.download='einvoice_forge_custom.html'; a.click();
     setStatus($('admStatus'),'ok','Customised HTML exported — open that file and it loads with your template by default.');
   };
+  $('admPresent').onclick=()=>{
+    const blob = new Blob([window.HSIN_PRESENTATION_HTML.replace(/<\\\/script>/g, '</' + 'script>').replace(/<\\script/g, '<' + 'script')], {type: 'text/html'});
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
+})();
+
+(function wireGuide(){
+  const M=$('guideModal'); if(!M)return;
+  $('btnUserGuide').onclick=()=>{ M.style.display='flex'; };
+  $('guideClose').onclick=()=>{ M.style.display='none'; };
+  $('guideCloseOk').onclick=()=>{ M.style.display='none'; };
+  M.addEventListener('click',e=>{ if(e.target===M)M.style.display='none'; });
+
+  // Load presentation inside iframe
+  setTimeout(() => {
+    const iframe = $('admPresIframe');
+    if (iframe) {
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      // Replace back escaped script tags before writing to the document
+      const loadedHtml = window.HSIN_PRESENTATION_HTML
+        .replace(/<\\\/script>/g, '</' + 'script>')
+        .replace(/<\\script/g, '<' + 'script');
+      doc.write(loadedHtml);
+      doc.close();
+    }
+  }, 500);
 })();
 
 /* ============================ MOCK PORTAL SIMULATION ============================ */
@@ -3132,7 +3218,7 @@ async function selectPdfFolder() {
     localStorage.setItem('hsin_target_pdf_folder_path', pathInput);
     await saveDirectoryHandle('pdf_dir', handle);
     
-    $('selectedPdfFolderLabel').innerHTML = `<b>Selected:</b> ${handle.name}`;
+    const lbl = $('selectedPdfFolderLabel'); if (lbl) lbl.innerHTML = `<b>Selected:</b> ${handle.name}`;
     setStatus(errDiv, 'ok', 'PDF output folder successfully verified!');
     updateSetupStatus();
   } catch (err) {
@@ -3198,7 +3284,7 @@ async function selectHistoryFolder() {
     localStorage.setItem('hsin_target_history_folder_path', pathInput);
     await saveDirectoryHandle('history_dir', handle);
     
-    $('selectedHistoryFolderLabel').innerHTML = `<b>Selected:</b> ${handle.name}`;
+    const lbl = $('selectedHistoryFolderLabel'); if (lbl) lbl.innerHTML = `<b>Selected:</b> ${handle.name}`;
     setStatus(errDiv, 'ok', 'History backup folder successfully verified!');
     updateSetupStatus();
     await loadHistoryFromFile();
@@ -3226,10 +3312,10 @@ async function loadStoredFolderPath() {
       const permission = await handle.queryPermission({ mode: 'readwrite' });
       if (permission === 'granted') {
         localInboxHandle = handle;
-        $('selectedPdfFolderLabel').innerHTML = `<b>Selected:</b> ${handle.name}`;
+        const lbl = $('selectedPdfFolderLabel'); if (lbl) lbl.innerHTML = `<b>Selected:</b> ${handle.name}`;
         restoredPdf = true;
       } else {
-        $('selectedPdfFolderLabel').innerHTML = `<b>Saved Folder:</b> ${handle.name} (Click "Select PDF Folder" to grant permission)`;
+        const lbl = $('selectedPdfFolderLabel'); if (lbl) lbl.innerHTML = `<b>Saved Folder:</b> ${handle.name} (Click "Select PDF Folder" to grant permission)`;
       }
     }
   } catch (err) {
@@ -3243,11 +3329,11 @@ async function loadStoredFolderPath() {
       const permission = await handle.queryPermission({ mode: 'readwrite' });
       if (permission === 'granted') {
         localHistoryBackupHandle = handle;
-        $('selectedHistoryFolderLabel').innerHTML = `<b>Selected:</b> ${handle.name}`;
+        const lbl = $('selectedHistoryFolderLabel'); if (lbl) lbl.innerHTML = `<b>Selected:</b> ${handle.name}`;
         restoredHistory = true;
         await loadHistoryFromFile();
       } else {
-        $('selectedHistoryFolderLabel').innerHTML = `<b>Saved Folder:</b> ${handle.name} (Click "Select History Folder" to grant permission)`;
+        const lbl = $('selectedHistoryFolderLabel'); if (lbl) lbl.innerHTML = `<b>Saved Folder:</b> ${handle.name} (Click "Select History Folder" to grant permission)`;
       }
     }
   } catch (err) {
@@ -3514,6 +3600,1987 @@ function initHeaderLogo() {
 
 /* ============================ INIT ============================ */
 applySample(); fitSticky(); initHeaderLogo(); initPortalSimulation(); initHistory(); loadStoredFolderPath(); window.addEventListener('load',fitSticky); setTimeout(fitSticky,250);
+</script>
+
+<script>
+window.HSIN_PRESENTATION_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D365FO Standard e-Invoicing vs e-Invoice Forge Comparison</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b303a;
+      --ink-2: #4a545e;
+      --muted: #72808e;
+      --faint: #d4dbe1;
+      --surface: #ffffff;
+      --panel: #f5f7f8;
+      --line: #e4e8eb;
+      
+      /* HydraSpecma Corporate Branding Palette */
+      --navy: #213B8B;
+      --navy-deep: #132454;
+      --navy-tint: #ebf0f8;
+      
+      --ok: #76B837; /* HydraSpecma Green */
+      --ok-deep: #598d28;
+      --ok-tint: #f1f7ea;
+      
+      --gold: #ffcd00; /* HydraSpecma Yellow/Gold */
+      --gold-deep: #cca300;
+      --gold-tint: #fffbeb;
+      
+      --bad: #cf3d33;
+      --bad-tint: #fdf3f2;
+      
+      --steel: #2c6aa8;
+      --steel-tint: #e8f0f8;
+      
+      --shadow: 0 15px 45px rgba(33, 59, 139, 0.08), 0 5px 15px rgba(33, 59, 139, 0.04);
+      --font-header: 'Space Grotesk', system-ui, sans-serif;
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--panel);
+      color: var(--ink);
+      font-family: var(--font-body);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- HEADER ---- */
+    header {
+      background: #575757;
+      border-bottom: 3px solid #FFCC00;
+      padding: 12px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    header h1 {
+      font-family: var(--font-header);
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header h1 span {
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFCC00;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: bold;
+    }
+    .shortcuts {
+      color: #B3B3B3;
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+      display: flex;
+      gap: 15px;
+    }
+    .shortcuts kbd {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid #B3B3B3;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #ffffff;
+    }
+
+    /* ---- PRESENTATION CONTAINER (3D Perspective Deck) ---- */
+    .deck-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      perspective: 1500px;
+    }
+
+    .slide {
+      position: absolute;
+      width: 95%;
+      max-width: 1200px;
+      height: 82vh;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      padding: 40px 50px 40px 110px;
+      opacity: 0;
+      pointer-events: none;
+      transform-style: preserve-3d;
+      transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.7s ease;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    /* ---- Slide 3D Positions ---- */
+    .slide.prev-slide {
+      transform: translateX(-120%) scale(0.85) rotateY(15deg);
+      opacity: 0;
+    }
+
+    .slide.active {
+      transform: translateX(0) scale(1) rotateY(0);
+      opacity: 1;
+      pointer-events: auto;
+      z-index: 5;
+    }
+
+    .slide.next-slide {
+      transform: translateX(120%) scale(0.85) rotateY(-15deg);
+      opacity: 0;
+    }
+
+    /* ---- BRAND SLANT TEMPLATE LAYOUTS ---- */
+    .left-accent {
+      position: absolute;
+      top: 0;
+      left: -20px;
+      width: 40px;
+      height: 100%;
+      background: var(--gold);
+      transform: skewX(-12deg);
+      z-index: 5;
+    }
+
+    .logo-slant {
+      position: absolute;
+      bottom: -10px;
+      right: -30px;
+      width: 180px;
+      height: 65px;
+      background: #ffffff;
+      transform: skewX(-12deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-left: 2px solid var(--line);
+      z-index: 6;
+      box-shadow: -5px 0 15px rgba(0,0,0,0.03);
+    }
+
+    .logo-slant img {
+      height: 28px;
+      transform: skewX(12deg);
+    }
+
+    /* ---- DARK COVER SLIDES (Slide 1 & Slide 9) ---- */
+    .slide-dark {
+      background: #3e3e3f;
+      color: #ffffff;
+      justify-content: center;
+      align-items: flex-start;
+      text-align: left;
+      padding-left: 130px;
+    }
+
+    .slide-dark h1 {
+      font-family: var(--font-header);
+      font-size: 52px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      line-height: 1.1;
+      color: #ffffff;
+      z-index: 2;
+    }
+
+    .slide-dark h1 span {
+      color: var(--gold);
+    }
+
+    .slide-dark p.subtitle {
+      font-size: 18px;
+      color: #b8c1c9;
+      max-width: 750px;
+      margin-bottom: 30px;
+      line-height: 1.5;
+      z-index: 2;
+    }
+
+    .slide-dark p.author {
+      font-size: 14px;
+      font-family: var(--font-mono);
+      color: #a0a8b0;
+      z-index: 2;
+    }
+
+    .watermark-h {
+      position: absolute;
+      top: 50%;
+      left: 55%;
+      transform: translate(-30%, -50%) skewX(-12deg);
+      font-size: 550px;
+      font-weight: 900;
+      color: rgba(255,255,255,0.015);
+      font-family: var(--font-header);
+      z-index: 1;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .title-logo-slant {
+      position: absolute;
+      bottom: -15px;
+      right: -45px;
+      width: 250px;
+      height: 95px;
+      background: #ffffff;
+      transform: skewX(-12deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 6;
+    }
+
+    .title-logo-slant img {
+      height: 40px;
+      transform: skewX(12deg);
+    }
+
+    /* ---- SLIDE CONTENT ELEMENTS ---- */
+    .slide-header {
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      width: 100%;
+    }
+
+    .slide-header h2 {
+      font-family: var(--font-header);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .slide-header .tag {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--ok-deep);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .slide-body {
+      flex: 1;
+      display: flex;
+      gap: 30px;
+      width: 100%;
+    }
+
+    .slide-content-full {
+      width: 100%;
+    }
+
+    .slide-left {
+      flex: 1.2;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .slide-right {
+      flex: 1;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      z-index: 3;
+      transition: all 0.3s ease;
+    }
+
+    /* ---- TYPOGRAPHY & BULLETS ---- */
+    p {
+      font-size: 14.5px;
+      line-height: 1.6;
+      color: var(--ink-2);
+      margin-bottom: 12px;
+    }
+
+    b, strong {
+      color: var(--navy);
+    }
+
+    ul.bullet-list {
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    ul.bullet-list li {
+      position: relative;
+      padding-left: 20px;
+      font-size: 13.5px;
+      line-height: 1.45;
+      color: var(--ink-2);
+    }
+
+    ul.bullet-list li::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: var(--ok);
+      font-weight: bold;
+    }
+
+    /* ---- DYNAMIC DIAGRAMS & FLOWS ---- */
+    .flow-step-box {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .flow-step {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .flow-step:hover {
+      border-color: var(--navy);
+      background: var(--navy-tint);
+      transform: translateX(5px);
+    }
+
+    .flow-step.active {
+      border-color: var(--navy);
+      background: var(--navy-tint);
+      box-shadow: 0 4px 15px rgba(33, 59, 139, 0.08);
+    }
+
+    .flow-step .num-badge {
+      background: var(--faint);
+      color: var(--navy);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .flow-step.active .num-badge {
+      background: var(--navy);
+      color: #fff;
+    }
+
+    .flow-step-text {
+      flex: 1;
+    }
+
+    .flow-step-text h4 {
+      font-size: 13.5px;
+      font-family: var(--font-header);
+      margin-bottom: 2px;
+      color: var(--navy);
+    }
+
+    .flow-step-text p {
+      font-size: 11px;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.2;
+    }
+
+    .flow-desc-pane {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      line-height: 1.5;
+      overflow-y: auto;
+    }
+
+    .flow-desc-pane.updating {
+      animation: paneUpdate 0.4s ease forwards;
+    }
+
+    @keyframes paneUpdate {
+      0% { opacity: 0; transform: translateY(8px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .flow-desc-pane strong {
+      color: var(--navy);
+      font-size: 15px;
+      margin-bottom: 8px;
+      display: block;
+      font-family: var(--font-header);
+      border-bottom: 1.5px solid var(--line);
+      padding-bottom: 5px;
+    }
+
+    .flow-desc-pane ol {
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .flow-desc-pane li {
+      font-size: 11.5px;
+      color: var(--ink-2);
+    }
+    
+    .flow-desc-pane li strong {
+      display: inline;
+      font-size: 11.5px;
+      border: 0;
+      padding: 0;
+      font-family: var(--font-body);
+    }
+
+    /* ---- PRICING MATRIX TABLE ---- */
+    .price-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    .price-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.01);
+    }
+
+    .price-card:hover {
+      border-color: var(--navy);
+      transform: translateY(-8px);
+      box-shadow: 0 15px 30px rgba(33, 59, 139, 0.08);
+    }
+
+    .price-card.best-value {
+      border-color: var(--ok);
+      background: var(--ok-tint);
+    }
+
+    .price-card .badge-top {
+      position: absolute;
+      top: -10px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .price-card.best-value .badge-top {
+      background: var(--ok);
+      color: #fff;
+    }
+
+    .price-card h3 {
+      font-family: var(--font-header);
+      font-size: 16px;
+      margin-bottom: 8px;
+      color: var(--navy);
+    }
+
+    .price-card .provider {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+
+    .price-card .amt {
+      font-family: var(--font-header);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+
+    .price-card .period {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 15px;
+    }
+
+    .price-card ul {
+      list-style-type: none;
+      width: 100%;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding-top: 15px;
+    }
+
+    .price-card li {
+      font-size: 11.5px;
+      color: var(--ink-2);
+      line-height: 1.35;
+      padding-left: 12px;
+      position: relative;
+    }
+
+    .price-card li::before {
+      content: "•";
+      color: var(--ok);
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+    }
+
+    /* ---- PRICING CROSS-OUT OVERLAYS ---- */
+    .price-card.crossed-out {
+      position: relative;
+      transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .price-card.crossed-out::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to top right, transparent 48.5%, var(--bad) 49.5%, var(--bad) 50.5%, transparent 51.5%),
+                  linear-gradient(to bottom right, transparent 48.5%, var(--bad) 49.5%, var(--bad) 50.5%, transparent 51.5%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 5;
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .price-card.crossed-out::after {
+      content: "✕";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      font-size: 90px;
+      color: var(--bad);
+      font-weight: bold;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 6;
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+    }
+
+    body.flags-active .price-card.crossed-out::before {
+      opacity: 0.5;
+    }
+    
+    body.flags-active .price-card.crossed-out::after {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 0.85;
+    }
+    
+    body.flags-active .price-card.crossed-out {
+      opacity: 0.55;
+      background: #fafafa;
+      transform: scale(0.96);
+    }
+
+    .price-card.checked-tool {
+      position: relative;
+      transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .price-card.checked-tool::after {
+      content: "✓";
+      position: absolute;
+      bottom: 15px;
+      right: 15px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--ok);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(118, 184, 55, 0.3);
+      z-index: 5;
+      opacity: 0;
+      transform: scale(0);
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+    }
+
+    body.flags-active .price-card.checked-tool::after {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    body.flags-active .price-card.checked-tool {
+      border-color: var(--ok);
+      background: var(--ok-tint);
+      box-shadow: 0 10px 25px rgba(118, 184, 55, 0.15);
+      transform: scale(1.04);
+    }
+
+    /* ---- TIMELINE ---- */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      padding-left: 20px;
+      border-left: 2px solid var(--line);
+    }
+
+    .timeline-step {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .timeline-step::before {
+      content: "";
+      position: absolute;
+      left: -27px;
+      top: 5px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--line);
+      border: 2px solid var(--surface);
+      transition: all 0.3s ease;
+    }
+
+    .timeline-step.d365::before { background: var(--navy); }
+    .timeline-step.forge::before { background: var(--ok); }
+
+    .timeline-step h4 {
+      font-size: 13.5px;
+      color: var(--navy);
+    }
+
+    .timeline-step p {
+      font-size: 11.5px;
+      margin: 0;
+      color: var(--ink-2);
+    }
+
+    /* ---- MOCK FORGE INTERFACE COMPONENT ---- */
+    .mock-forge-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .mock-forge-ui {
+      background: #ffffff;
+      border: 1px solid var(--faint);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+
+    .mock-header {
+      border-bottom: 1.5px solid var(--line);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mock-logo {
+      font-family: var(--font-header);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .mock-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: var(--panel);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .mock-card:hover {
+      border-color: var(--ok);
+      background: var(--ok-tint);
+      transform: translateX(3px);
+    }
+
+    .mock-card.active {
+      border-color: var(--navy);
+      background: var(--navy-tint);
+      box-shadow: 0 4px 10px rgba(33, 59, 139, 0.05);
+    }
+
+    .mock-card h5 {
+      font-size: 11px;
+      font-family: var(--font-header);
+      margin-bottom: 2px;
+      color: var(--navy);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .mock-card p {
+      font-size: 10px;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+
+    .mock-btn {
+      background: var(--navy);
+      color: #fff;
+      border: 0;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 9.5px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    
+    .mock-btn:hover {
+      background: var(--navy-deep);
+      transform: translateY(-1px);
+    }
+
+    .mock-badge {
+      font-size: 8px;
+      font-family: var(--font-mono);
+      background: var(--ok-tint);
+      color: var(--ok-deep);
+      border: 1.5px solid var(--ok);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .ui-detail-card {
+      background: var(--panel);
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      padding: 25px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.01);
+      transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .ui-detail-card h3 {
+      font-family: var(--font-header);
+      font-size: 18px;
+      color: var(--navy);
+    }
+
+    .ui-detail-card h4 {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--ok-deep);
+      text-transform: uppercase;
+      margin-top: 5px;
+    }
+
+    .ui-detail-card p {
+      font-size: 13px;
+      color: var(--ink-2);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    /* ---- INTEGRATION OPTIONS GRID ---- */
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      width: 100%;
+    }
+
+    .opt-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    .opt-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.03);
+    }
+
+    .opt-card h3 {
+      font-family: var(--font-header);
+      font-size: 16px;
+      color: var(--navy);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .opt-card h3 span.badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .opt-card .list-sect {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .opt-card .list-sect strong {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+
+    .opt-card ul {
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .opt-card li {
+      font-size: 11.5px;
+      line-height: 1.35;
+      padding-left: 15px;
+      position: relative;
+    }
+
+    .opt-card li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+    }
+
+    .opt-card.api li::before { color: var(--navy); }
+    .opt-card.semi li::before { color: var(--bad); }
+
+    .opt-card .note-block {
+      background: var(--surface);
+      border-left: 3px solid var(--gold);
+      padding: 10px;
+      font-size: 11px;
+      color: var(--ink-2);
+      line-height: 1.4;
+      border-radius: 0 6px 6px 0;
+      margin-top: auto;
+    }
+
+    .forge-highlight-box {
+      grid-column: span 2;
+      background: var(--ok-tint);
+      border: 1.5px solid var(--ok);
+      border-radius: 12px;
+      padding: 15px 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      transition: all 0.3s ease;
+    }
+    
+    .forge-highlight-box:hover {
+      box-shadow: 0 5px 15px rgba(118, 184, 55, 0.1);
+    }
+
+    .forge-highlight-box h3 {
+      font-family: var(--font-header);
+      font-size: 18px;
+      color: var(--ok-deep);
+      margin-bottom: 5px;
+    }
+
+    .forge-highlight-box p {
+      font-size: 12.5px;
+      margin: 0;
+      color: var(--ink-2);
+      line-height: 1.4;
+    }
+
+    /* ---- CHALLENGE GRID ---- */
+    .challenge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      width: 100%;
+    }
+
+    .ch-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    .ch-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.03);
+    }
+
+    .ch-card h3 {
+      font-family: var(--font-header);
+      font-size: 15px;
+      color: var(--navy);
+    }
+
+    .ch-card p {
+      font-size: 11.5px;
+      color: var(--ink-2);
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .ch-card .solution {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--ok);
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .ch-card .solution strong {
+      font-family: var(--font-header);
+      font-size: 12px;
+      color: var(--ok-deep);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .ch-card .solution p {
+      font-size: 11px;
+      margin: 0;
+      color: var(--ink-2);
+      line-height: 1.35;
+    }
+
+    /* ---- FLAG TOGGLE BUTTON STYLE ---- */
+    #toggleFlagsBtn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #B3B3B3;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: var(--font-header);
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      outline: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #toggleFlagsBtn::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+      transition: all 0.6s ease;
+    }
+    
+    #toggleFlagsBtn:hover::before {
+      left: 100%;
+    }
+
+    #toggleFlagsBtn:hover {
+      border-color: #FFCC00;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    #toggleFlagsBtn.active {
+      background: var(--green) !important;
+      border-color: var(--green) !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(118, 184, 55, 0.3);
+    }
+    
+    #toggleFlagsBtn.active span:first-child {
+      animation: flagWiggle 0.5s ease infinite alternate;
+    }
+
+    @keyframes flagWiggle {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(15deg); }
+    }
+
+    /* ---- FOOTER CONTROLS ---- */
+    footer {
+      background: #575757;
+      border-top: 3px solid #FFCC00;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      box-shadow: 0 -4px 15px rgba(0,0,0,0.08);
+    }
+
+    .nav-btn {
+      background: transparent;
+      color: #ffffff;
+      border: 1.5px solid #B3B3B3;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-weight: 600;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: var(--font-header);
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      border-color: #FFCC00;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.35;
+      color: #B3B3B3;
+      border-color: rgba(179, 179, 179, 0.2);
+      cursor: not-allowed;
+    }
+
+    .dots-container {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #B3B3B3;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .dot:hover {
+      background: #ffffff;
+    }
+
+    .dot.active {
+      background: #FFCC00;
+      transform: scale(1.25);
+    }
+
+    /* ---- DYNAMIC SVG DRAWING TRANSITION ---- */
+    .connection-svg path {
+      animation: flowDash 0.8s linear infinite;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    body.flags-active .slide.active .connection-svg path {
+      opacity: 1;
+    }
+
+    /* ---- DYNAMIC TRANSITIONS & ANIMATIONS ---- */
+    @keyframes slideInUp {
+      from { opacity: 0; transform: translateY(25px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes flowDash {
+      to {
+        stroke-dashoffset: -20;
+      }
+    }
+  </style>
+</head>
+<body class="flags-active"> <!-- recommendations on by default so it's instantly visual! -->
+
+  <header>
+    <h1>HydraSpecma <span>e-Invoice Strategic Evaluation</span></h1>
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <button id="toggleFlagsBtn" class="active">
+        <span>🚩</span> <span id="flag-btn-text">Recommendations: ON</span>
+      </button>
+      <div class="shortcuts">
+        <span>Navigate: <kbd>→</kbd> or <kbd>Space</kbd> for next, <kbd>←</kbd> for prev</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="deck-container">
+
+    <!-- SLIDE 1: TITLE SLIDE (Dark theme) -->
+    <section class="slide active slide-dark" id="slide1">
+      <div class="left-accent"></div>
+      <div class="watermark-h">H</div>
+      <div class="title-logo">HYDRASPECMA</div>
+      <h1>Hydra<span>Specma</span></h1>
+      <p class="subtitle">D365FO Standard e-Invoicing vs. API GSPs vs. e-Invoice Forge Comparison Presentation</p>
+      <p class="author">By Manigandan Parthasarathi</p>
+      
+      <div class="title-logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+    <!-- SLIDE 2: PROVIDER SELECTION & PRICING -->
+    <section class="slide next-slide" id="slide2">
+      <div class="left-accent"></div>
+      <div class="slide-header">
+        <h2>API Provider Selection &amp; Pricing</h2>
+        <span class="tag">Financial Comparison</span>
+      </div>
+      <div class="slide-body" style="flex-direction: column;">
+        <p style="margin-bottom: 5px;">HydraSpecma is evaluating API connectivity options to route invoices from D365FO to the government Invoice Registration Portal (IRP). Standard GSPs introduce high recurring overhead compared to the **e-Invoice Forge** local flow:</p>
+        <div class="price-grid">
+          <div class="price-card crossed-out">
+            <h3>Clear ERP Enriched</h3>
+            <div class="provider">ClearTax</div>
+            <div class="amt">₹300,000</div>
+            <div class="period">per year</div>
+            <ul>
+              <li><strong>Enriched API only</strong> — data sent to provider's cloud for storage and quality checks</li>
+              <li>Includes dedicated D365 customization support team</li>
+              <li>Highest annual recurring subscription cost</li>
+            </ul>
+          </div>
+          <div class="price-card crossed-out">
+            <h3>Cygnet Enriched</h3>
+            <div class="provider">Cygnet Infotech</div>
+            <div class="amt">₹125,000</div>
+            <div class="period">per year</div>
+            <ul>
+              <li><strong>Enriched API</strong> — validation checks on GSP servers prior to government routing</li>
+              <li>No D365 customization team available</li>
+              <li>Standard GSP integration option</li>
+            </ul>
+          </div>
+          <div class="price-card checked-tool">
+            <div class="badge-top" style="background: var(--ok); color: #fff;">Selected Tool</div>
+            <h3>e-Invoice Forge</h3>
+            <div class="provider">Local Utility</div>
+            <div class="amt">₹0</div>
+            <div class="period">completely free</div>
+            <ul>
+              <li><strong>No API subscription</strong> — parses and validates invoice PDFs entirely client-side</li>
+              <li><strong>Zero integration costs</strong> — no Azure, no RCS, no consulting fees</li>
+              <li>Serves as a validation, correction, and backup engine</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+    <!-- SLIDE 3: STANDARD D365FO MESSAGING PROCESS -->
+    <section class="slide next-slide" id="slide3">
+      <div class="left-accent"></div>
+      <div class="slide-header">
+        <h2>Standard D365FO e-Invoicing Process</h2>
+        <span class="tag">Standard Workflow</span>
+      </div>
+      <div class="slide-body">
+        <div class="slide-left">
+          <p>Standard e-invoicing in Microsoft Dynamics 365 Finance for India relies on the <strong>Electronic Messaging (EM)</strong> framework. Processing is divided into three key phases:</p>
+          <div class="flow-step-box">
+            <div class="flow-step active" onclick="showEMStep('setup', this)">
+              <div class="num-badge">1</div>
+              <div class="flow-step-text">
+                <h4>System Configuration</h4>
+                <p>LCS, RCS, Entra App ID, and Key Vault Parameters</p>
+              </div>
+            </div>
+            <div class="flow-step" onclick="showEMStep('master', this)">
+              <div class="num-badge">2</div>
+              <div class="flow-step-text">
+                <h4>Master Data Alignment</h4>
+                <p>GSTINs, HSN/SAC codes, Tax Formulas, and Customer Parameters</p>
+              </div>
+            </div>
+            <div class="flow-step" onclick="showEMStep('runtime', this)">
+              <div class="num-badge">3</div>
+              <div class="flow-step-text">
+                <h4>Invoice Submission Workflow</h4>
+                <p>Posting, queueing, signing JSON, and API transmission</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="slide-right">
+          <div class="flow-desc-pane" id="em-details">
+            <strong>Phase 1: Environment &amp; Parameters Setup</strong>
+            <ol>
+              <li><strong>LCS Mapping Import:</strong> Download latest Electronic Reporting (ER) formats (JSON structure mapping) from Microsoft LCS Shared Asset Library.</li>
+              <li><strong>Azure Entra Registration:</strong> Register a new App ID in Microsoft Entra ID (Azure AD) to handle authentication access to the Key Vault.</li>
+              <li><strong>Azure Key Vault Config:</strong> Provision Key Vault, upload GSP access certificates, and map secret credentials in D365FO under <em>Key Vault Parameters</em>.</li>
+              <li><strong>Electronic Messaging Parameters:</strong> Configure service addresses, actions (Generate, Submit, Import), message statuses, and number sequences.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+      <div class="logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+    <!-- SLIDE 4: STEP-BY-STEP PROCESS COMPARISON -->
+    <section class="slide next-slide" id="slide4">
+      <div class="left-accent"></div>
+      <div class="slide-header">
+        <h2>Detailed Process Flow Comparison</h2>
+        <span class="tag">Process Steps Compared</span>
+      </div>
+      
+      <!-- SVG Connector overlay with animated dashes -->
+      <svg class="connection-svg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;">
+        <path id="flow-arrow-path" d="" fill="none" stroke="#cf3d33" stroke-width="3" stroke-dasharray="6,4" marker-end="url(#arrow)" />
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#cf3d33" />
+          </marker>
+        </defs>
+      </svg>
+
+      <div class="slide-body">
+        <div class="slide-left" style="flex: 1.1;">
+          <h3 style="font-family: var(--font-header); font-size: 16px; margin-bottom: 12px; color: var(--navy); display: flex; align-items: center; gap: 8px;">
+            Standard D365FO Submission Flow <span style="font-size: 11px; font-family: var(--font-mono); background: var(--navy-tint); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--navy)">5 Steps</span>
+          </h3>
+          <div class="timeline">
+            <div class="timeline-step d365">
+              <h4 id="d365-start-step">1. Invoice Posting</h4>
+              <p>User posts a sales or project invoice in D365FO.</p>
+            </div>
+            <div class="timeline-step d365">
+              <h4>2. Batch Queueing</h4>
+              <p>Standard batch jobs populate the Electronic Messaging registry tables.</p>
+            </div>
+            <div class="timeline-step d365">
+              <h4>3. Cloud Export Pipeline</h4>
+              <p>RCS converts D365 XML data using Electronic Reporting formats into JSON.</p>
+            </div>
+            <div class="timeline-step d365">
+              <h4>4. Key Vault Auth &amp; Govt Portal Call</h4>
+              <p>RCS signs the JSON via Azure Key Vault certificate and submits it to IRP API.</p>
+            </div>
+            <div class="timeline-step d365">
+              <h4>5. Import Response &amp; Layout Painting</h4>
+              <p>D365 imports portal response (IRN/QR) via batch. Invoice layout prints with QR code.</p>
+            </div>
+          </div>
+        </div>
+        <div class="slide-right" style="flex: 1; justify-content: flex-start; background: transparent; border: 0; padding: 0;">
+          <h3 style="font-family: var(--font-header); font-size: 16px; margin-bottom: 12px; color: var(--ok-deep); display: flex; align-items: center; gap: 8px;">
+            e-Invoice Forge Flow <span style="font-size: 11px; font-family: var(--font-mono); background: var(--ok-tint); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--ok)">3 Steps</span>
+          </h3>
+          <div class="timeline" style="border-left-color: var(--line);">
+            <div class="timeline-step forge">
+              <h4 id="forge-dest-step">1. Drag &amp; Drop Standard SSRS PDF</h4>
+              <p>PDF is generated natively during billing and dropped into the browser. Browser JavaScript extracts coordinates in seconds.</p>
+            </div>
+            <div class="timeline-step forge">
+              <h4>2. GST Pre-Validation &amp; JSON Export</h4>
+              <p>Validation Gate audits data formats. Corrects rounding and address constraints on-screen. User downloads compliant JSON.</p>
+            </div>
+            <div class="timeline-step forge">
+              <h4>3. IRP Upload &amp; PDF Stamping</h4>
+              <p>Upload JSON to Government portal. Paste signed response in Forge to stamp IRN and QR code back onto original PDF.</p>
+            </div>
+          </div>
+          <div style="margin-top: 15px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 15px; font-size: 12.5px; color: var(--muted); line-height: 1.45;">
+            <strong style="color: var(--navy); display: block; margin-bottom: 4px;">Complexity Contrast:</strong>
+            Standard D365FO relies on batch queue schedules, cloud integrations, and Azure certificate checks. e-Invoice Forge converts the process into an <strong>instant local workflow</strong>, bypassing intermediate server failures.
+          </div>
+        </div>
+      </div>
+      <div class="logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+    <!-- SLIDE 5: FORGE APP INTERACTIVE WALKTHROUGH -->
+    <section class="slide next-slide" id="slide5">
+      <div class="left-accent"></div>
+      <div class="slide-header">
+        <h2>e-Invoice Forge Site Walkthrough</h2>
+        <span class="tag">How the Application Works</span>
+      </div>
+      <div class="slide-body">
+        <div class="mock-forge-grid">
+          <!-- Mock Forge App Interface -->
+          <div class="mock-forge-ui">
+            <div class="mock-header">
+              <div class="mock-logo">e-Invoice Forge v2.0</div>
+              <div class="mock-badge">100% Client-Side</div>
+            </div>
+            
+            <div class="mock-card active" onclick="showForgeDetails('folder', this)">
+              <h5>Step 00: Local Folder Configuration 
+                <span class="mock-badge" style="background: var(--ok-tint); color: var(--ok-deep); border-color: var(--ok);">1-Time Setup</span>
+              </h5>
+              <p>Path: C:\\...\\Hydra-I-India - Sales Invoice\\History Backup</p>
+            </div>
+            
+            <div class="mock-card" onclick="showForgeDetails('drop', this)">
+              <h5>Step 01: Drag &amp; Drop Invoice PDF</h5>
+              <p>Mozilla pdf.js coordinates parser retrieves and maps billing tables in-browser.</p>
+            </div>
+            
+            <div class="mock-card" onclick="showForgeDetails('validation', this)">
+              <h5>Step 02: GST Validation Gate <span class="mock-badge">Active</span></h5>
+              <p>Real-time checks: HSN length, GSTIN formats, and CGST/SGST/IGST mapping validation.</p>
+            </div>
+            
+            <div class="mock-card" onclick="showForgeDetails('editor', this)">
+              <h5>Interactive Table Editor</h5>
+              <p>On-screen editor to resolve 0.01 rounding discrepancies and IRP schema limitations.</p>
+            </div>
+            
+            <div class="mock-card" onclick="showForgeDetails('export', this)">
+              <h5>Step 03: IRP Schema JSON Export</h5>
+              <button class="mock-btn" style="background: var(--ok-deep); margin-top: 5px;">Download .json</button>
+            </div>
+            
+            <div class="mock-card" onclick="showForgeDetails('stamping', this)">
+              <h5>Step 04: IRN &amp; QR PDF Stamping</h5>
+              <p>Pastes the signed response from portal to stamp the cryptographic QR code directly on PDF.</p>
+            </div>
+          </div>
+          
+          <!-- Detailed Explanations Pane (Auto-loaded with Step 00 Details) -->
+          <div class="ui-detail-card" id="forge-details-pane">
+            <h3>Step 00: Local Folder Configuration [1-Time Setup]</h3>
+            <h4>What to Configure / Add</h4>
+            <p style="margin-bottom: 10px;">User enters the target backup directory path in the browser's configuration panel once. This is a 1-time setup.</p>
+            <h4>How It Works Behind the Scenes</h4>
+            <p>Using the File System Access API (window.showDirectoryPicker), the browser obtains a secure persistent directory handle to write files directly to the local folder. The path string is cached in localStorage so the user does not need to reconfigure it on page reloads.</p>
+          </div>
+        </div>
+      </div>
+      <div class="logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+    <!-- SLIDE 6: COMPLIANCE INTEGRATION OPTIONS -->
+    <section class="slide next-slide" id="slide6">
+      <div class="left-accent"></div>
+      <div class="slide-header">
+        <h2>D365FO Integration Options vs. e-Invoice Forge</h2>
+        <span class="tag">Architectural Comparison</span>
+      </div>
+      <div class="slide-body">
+        <div class="slide-content-full" style="display: flex; flex-direction: column; gap: 15px; height: 100%;">
+          <div class="options-grid">
+            <!-- Option 1 Card -->
+            <div class="opt-card api">
+              <h3>Option 1: Integration via IRP (Direct API) <span class="badge" style="background: var(--navy-tint); color: var(--navy);">Fully Automated</span></h3>
+              <p style="font-size: 11.5px; margin: 0; line-height: 1.35;">Complete direct integration with the GST portal via APIs for both inbound and outbound transactions, utilizing GSP gateways.</p>
+              
+              <div class="list-sect">
+                <strong>Advantages:</strong>
+                <ul>
+                  <li>Significantly expedited processes and round-the-clock support.</li>
+                  <li>Reconciliation and filings remain unaffected by GST portal downtimes.</li>
+                  <li>Access to centralized transactions repository and dashboards.</li>
+                </ul>
+              </div>
+              <div class="list-sect">
+                <strong>Disadvantages:</strong>
+                <ul>
+                  <li>High one-time cost and recurring annual GSP fees.</li>
+                  <li>Prone to batch queue failures and RCS mapper connection issues.</li>
+                </ul>
+              </div>
+              <div class="note-block">
+                <strong>Layout Change Required:</strong> Stamped QR code and IRN must be custom-integrated into the <strong>LaserNet Invoice report</strong> layout in D365FO.
+              </div>
+            </div>
+
+            <!-- Option 2 Card -->
+            <div class="opt-card semi">
+              <h3>Option 2: Semi-Automated Integration <span class="badge" style="background: var(--bad-tint); color: var(--bad);">Manual File Portal</span></h3>
+              <p style="font-size: 11.5px; margin: 0; line-height: 1.35;">D365 generates IRP JSON files on-demand. The Finance Team manually logs into IRP, uploads JSONs, downloads responses, and loads them back to D365.</p>
+              
+              <div class="list-sect">
+                <strong>Advantages:</strong>
+                <ul>
+                  <li>No ongoing subscription or GSP transactional costs.</li>
+                </ul>
+              </div>
+              <div class="list-sect">
+                <strong>Disadvantages:</strong>
+                <ul>
+                  <li>Longer processing times, high manual errors, and portal slow-down at month-end.</li>
+                  <li>Requires complex custom D365 scripts to import responses and update fields.</li>
+                  <li>Cannot generate e-invoices during portal outages.</li>
+                </ul>
+              </div>
+              <div class="note-block">
+                <strong>Layout Change Required:</strong> Stamped QR code and IRN must be custom-integrated into the <strong>LaserNet Invoice report</strong> layout in D365FO.
+              </div>
+            </div>
+          </div>
+
+          <!-- Forge Highlight Comparison -->
+          <div class="forge-highlight-box">
+            <div>
+              <h3>The e-Invoice Forge Alternative (Local Automation)</h3>
+              <p>Forge provides a third way: <strong>Zero ongoing GSP costs</strong> (like Option 2) while keeping the process <strong>nearly instantaneous</strong> (like Option 1) through local PDF-parsing automation. It runs inside the browser and handles roundings, validation, and stamping locally.</p>
+            </div>
+            <div style="background: #ffffff; border: 1.5px solid var(--ok); border-radius: 6px; padding: 10px; font-size: 11.5px; color: var(--navy); min-width: 250px; text-align: center;">
+              <strong style="color: var(--ok-deep); display: block; margin-bottom: 2px;">Key PM Benefit:</strong>
+              Requires <strong>ZERO customization of LaserNet or SSRS layouts</strong> in D365FO. Stamping is done directly on the standard PDF output.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+    <!-- SLIDE 7: D365FO IMPLEMENTATION STRATEGY -->
+    <section class="slide next-slide" id="slide7">
+      <div class="left-accent"></div>
+      <div class="slide-header">
+        <h2>D365FO Implementation Strategy &amp; Customization</h2>
+        <span class="tag">Decision Framework</span>
+      </div>
+      <div class="slide-body">
+        <div class="slide-left">
+          <p>Choosing Cygnet Enriched saves <strong>₹175,000 annually</strong> in subscription costs compared to Clear ERP, but introduces customization challenges because Cygnet has <strong>no in-house D365 customization support team</strong>.</p>
+          <ul class="bullet-list" style="gap: 8px;">
+            <li><strong>Clear ERP</strong>: Includes D365 customization support team. Standardizes setup but locks the user into high recurring fees (₹300k/yr).</li>
+            <li><strong>Cygnet Enriched</strong>: No D365 support team. Requires external customization resources or configuring Microsoft's standard out-of-the-box features.</li>
+            <li><strong>e-Invoice Forge Utility</strong>: Requires <strong>zero D365 customization</strong> because it processes standard PDF outputs, eliminating the need for developer involvement.</li>
+          </ul>
+        </div>
+        <div class="slide-right" style="background: var(--steel-tint); border-color: var(--steel); justify-content: flex-start; padding: 25px;">
+          <h3 style="font-family: var(--font-header); font-size: 18px; color: var(--steel); margin-bottom: 12px; color: var(--navy);">Approved Implementation Roadmap</h3>
+          <div class="timeline" style="border-left-color: var(--line);">
+            <div class="timeline-step forge">
+              <h4>1. Configure &amp; Test Standard (Cygnet Enriched GSP)</h4>
+              <p>Set up out-of-the-box Microsoft e-invoicing parameters connecting to Cygnet's ₹125k/yr server. Run extensive validation testing.</p>
+            </div>
+            <div class="timeline-step forge">
+              <h4>2. Forge as Backup &amp; Validation Gate</h4>
+              <p>Utilize e-Invoice Forge to handle invoices with validation errors, process batch files, or act as an immediate business-continuity tool if D365 integration errors halt the batch.</p>
+            </div>
+            <div class="timeline-step d365">
+              <h4>3. Customization Trigger (Contingency)</h4>
+              <p>Only commission external consultants for D365 code customization if standard API testing fails, saving ₹175k/yr initially.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+    <!-- SLIDE 8: SCOPE BOUNDARIES & RECONCILIATIONS -->
+    <section class="slide next-slide" id="slide8">
+      <div class="left-accent"></div>
+      <div class="slide-header">
+        <h2>Scope Boundaries &amp; Reconciliations</h2>
+        <span class="tag">Operational Compliance</span>
+      </div>
+      <div class="slide-body">
+        <div class="slide-content-full">
+          <p style="margin-bottom: 20px;">Both standard Dynamics 365 e-invoicing integrations and portal rules contain key scope limitations. The comparison below highlights how exceptions are managed:</p>
+          <div class="challenge-grid">
+            <div class="ch-card">
+              <h3>1. SEZWOP &amp; EXPWOP Transactions</h3>
+              <p>In D365FO standard, zero-tax exports (EXPWOP) and SEZ transactions (SEZWOP) require specialized GTE tax engine formulas. Any minor setup mismatch defaults the mapping to standard B2B rules, calculating standard tax rates and causing IRP portal rejections.</p>
+              <div class="solution">
+                <strong>Forge Zero-Tax Auto-Override</strong>
+                <p>Automatically detects EXPWOP/SEZWOP identifiers from SSRS PDF invoice metadata, overrides calculated tax values to exactly 0, and generates compliant schema JSON files instantly.</p>
+              </div>
+            </div>
+            <div class="ch-card">
+              <h3>2. D365 Out of Scope Items</h3>
+              <p>Microsoft's standard India e-invoicing feature explicitly leaves several critical processes out of scope, including:
+              <br>• Seller's Digital Signature
+              <br>• Input Service Distributor (ISD) Invoices
+              <br>• Accounts Payable (AP) e-Invoice imports</p>
+              <div class="solution">
+                <strong>Forge Assistance</strong>
+                <p>Enables manual overrides, field adjustments, and batch compilations to format and export compliance files for out-of-scope transactions.</p>
+              </div>
+            </div>
+            <div class="ch-card">
+              <h3>3. Debugging Validation Rejections</h3>
+              <p>D365FO submissions fail when IRP returns generic error codes. Finding logs requires checking the Electronic Messages action log, and corrections require ER configurations modifications.</p>
+              <div class="solution">
+                <strong>Forge Validation Gate</strong>
+                <p>Displays all error details and schema discrepancies in red on-screen immediately. Prompts immediate correction of quantities, HSNs, state codes, and tax rates.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+    <!-- SLIDE 9: END SLIDE (Dark theme) -->
+    <section class="slide next-slide slide-dark" id="slide9">
+      <div class="left-accent"></div>
+      <div class="watermark-h">H</div>
+      <div class="title-logo">HYDRASPECMA</div>
+      <h1>Hydra<span>Specma</span></h1>
+      <p class="subtitle">Moving forward in POWER and MOTION</p>
+      <p class="author">Thank You...!!!</p>
+      
+      <div class="title-logo-slant">
+        <img src="data:image/png;base64,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" alt="HydraSpecma Logo">
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <button class="nav-btn" id="btnPrev" disabled>← Previous</button>
+    <div class="dots-container" id="dots"></div>
+    <button class="nav-btn" id="btnNext">Next →</button>
+  </footer>
+
+  <\script>
+    // Navigation Logic
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const dotsContainer = document.getElementById('dots');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+
+    // Init Dots
+    slides.forEach((_, idx) => {
+      const dot = document.createElement('div');
+      dot.className = \`dot \${idx === 0 ? 'active' : ''}\`;
+      dot.addEventListener('click', () => goToSlide(idx));
+      dotsContainer.appendChild(dot);
+    });
+
+    const dots = document.querySelectorAll('.dot');
+
+    function updateNav() {
+      slides.forEach((slide, idx) => {
+        slide.classList.remove('active', 'prev-slide', 'next-slide');
+        if (idx === currentSlide) {
+          slide.classList.add('active');
+        } else if (idx < currentSlide) {
+          slide.classList.add('prev-slide');
+        } else {
+          slide.classList.add('next-slide');
+        }
+      });
+
+      dots.forEach((dot, idx) => {
+        if (idx === currentSlide) {
+          dot.classList.add('active');
+        } else {
+          dot.classList.remove('active');
+        }
+      });
+
+      btnPrev.disabled = currentSlide === 0;
+      btnNext.disabled = currentSlide === slides.length - 1;
+      if (currentSlide === slides.length - 1) {
+        btnNext.textContent = 'Finish';
+      } else {
+        btnNext.textContent = 'Next →';
+      }
+
+      // Track coordinates dynamically during Slide 4's entry transition
+      if (currentSlide === 3) {
+        let drawInterval = setInterval(drawConnectorArrow, 30);
+        setTimeout(() => clearInterval(drawInterval), 1200);
+      }
+      
+      // Auto-load Step 00 (Local Folder Config) details when navigating to Slide 5
+      if (currentSlide === 4) {
+        const firstCard = document.querySelector('.mock-forge-ui .mock-card');
+        showForgeDetails('folder', firstCard);
+      }
+    }
+
+    function goToSlide(idx) {
+      currentSlide = idx;
+      updateNav();
+    }
+
+    function nextSlide() {
+      if (currentSlide < slides.length - 1) {
+        currentSlide++;
+        updateNav();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateNav();
+      }
+    }
+
+    btnNext.addEventListener('click', nextSlide);
+    btnPrev.addEventListener('click', prevSlide);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevSlide();
+      }
+    });
+
+    // Handle Window Resize for connector path coordinates recalculation
+    window.addEventListener('resize', () => {
+      if (currentSlide === 3) {
+        drawConnectorArrow();
+      }
+    });
+
+    // SVG path calculator for Slide 4 connection arrow
+    function drawConnectorArrow() {
+      const slide = document.getElementById('slide4');
+      if (!slide.classList.contains('active')) return;
+      
+      const titleL = document.getElementById('d365-start-step');
+      const titleR = document.getElementById('forge-dest-step');
+      
+      if (!titleL || !titleR) return;
+      
+      const rectL = titleL.getBoundingClientRect();
+      const rectR = titleR.getBoundingClientRect();
+      const rectSlide = slide.getBoundingClientRect();
+      
+      // Calculate coordinates relative to Slide 4 container
+      // Points exactly from the right end of left step (D365 standard No. 1) to left end of right step (Forge No. 1)
+      const x1 = rectL.right - rectSlide.left + 15;
+      const y1 = rectL.top - rectSlide.top + rectL.height / 2;
+      
+      const x2 = rectR.left - rectSlide.left - 25;
+      const y2 = rectR.top - rectSlide.top + rectR.height / 2;
+      
+      const path = document.getElementById('flow-arrow-path');
+      
+      // Check if coordinates are valid (not 0 due to inactive layout rendering checks)
+      if (rectL.right > 0 && rectR.left > 0) {
+        const controlX = (x1 + x2) / 2;
+        const controlY = (y1 + y2) / 2 - 35; // curve slightly upwards
+        path.setAttribute('d', \`M \${x1} \${y1} Q \${controlX} \${controlY} \${x2} \${y2}\`);
+      }
+    }
+
+    // Toggle recommendations flags active class on body
+    const toggleFlagsBtn = document.getElementById('toggleFlagsBtn');
+    const flagBtnText = document.getElementById('flag-btn-text');
+    
+    toggleFlagsBtn.addEventListener('click', () => {
+      document.body.classList.toggle('flags-active');
+      const isActive = document.body.classList.contains('flags-active');
+      toggleFlagsBtn.classList.toggle('active', isActive);
+      
+      if (isActive) {
+        flagBtnText.textContent = "Recommendations: ON";
+      } else {
+        flagBtnText.textContent = "Show Recommendations";
+      }
+      
+      // Recalculate arrow on Slide 4 just in case
+      if (currentSlide === 3) {
+        drawConnectorArrow();
+      }
+    });
+
+    // Detailed D365 steps database
+    const emDetails = {
+      setup: {
+        title: "Phase 1: Environment & Parametrization (Steps 1–4)",
+        desc: \`
+          <ol>
+            <li><strong>LCS Mapping Import:</strong> Download the latest Electronic Reporting (ER) configuration packages (including the India tax model and JSON mappings) from Microsoft Lifecycle Services Shared Asset Library.</li>
+            <li><strong>Azure Entra Registration:</strong> Register a dedicated Application Client ID in Microsoft Entra (Azure AD) with secure reader access permissions to the Azure Key Vault instance.</li>
+            <li><strong>Key Vault Parameters Setup:</strong> Provision the Key Vault instance, upload the IRP government authentication certificate, and configure parameters in D365FO under <em>System Administration > Setup > Key Vault Parameters</em>.</li>
+            <li><strong>Electronic Messaging Parameters:</strong> Configure integration service URLs, actions (Generate, Submit, Import), message types, number sequences, and security groups under <em>Tax > Setup > Electronic Messages</em>.</li>
+          </ol>
+        \`
+      },
+      master: {
+        title: "Phase 2: Master Data Configuration & Alignment (Steps 5–8)",
+        desc: \`
+          <ol>
+            <li><strong>Legal Entity GSTIN:</strong> Register the company legal entity tax credentials under GSTIN setup, mapping state addresses and registration offices.</li>
+            <li><strong>HSN/SAC Codes Setup:</strong> Define 6-8 digit Harmonized System of Nomenclature (HSN) and Service Accounting Codes (SAC) in the system and link them directly to Released Products master.</li>
+            <li><strong>Customer Account Audit:</strong> Verify customer account profiles in Accounts Receivable, ensuring valid billing addresses, verified 15-digit GSTINs, and e-invoicing parameters active.</li>
+            <li><strong>Tax Engine formulas mapping:</strong> Configure calculations within the Generic Tax Engine (GTE) to accurately resolve CGST, SGST, and IGST components matching government portal rules.</li>
+          </ol>
+        \`
+      },
+      runtime: {
+        title: "Phase 3: Runtime Submission & Processing (Steps 9–13)",
+        desc: \`
+          <ol>
+            <li><strong>Invoice Posting:</strong> The Finance Team posts standard Sales Invoices, Free Text Invoices, or Project Invoices in D365FO.</li>
+            <li><strong>Generate Message Queue:</strong> Run the "Generate Messages" batch job under <em>Electronic Messages</em> to add posted invoices to the processing registry.</li>
+            <li><strong>Sign and Generate JSON:</strong> Trigger the export process. D365 calls RCS to convert XML to JSON and signs it via Key Vault certificates.</li>
+            <li><strong>Transmit to Government Portal:</strong> Transmit the signed JSON payload to the government IRP via the GSP endpoint (Cygnet Enriched GSP).</li>
+            <li><strong>Import response & stamp:</strong> Run the import response batch to fetch the 64-character IRN and cryptographic QR code from IRP, updating the journal status to Approved and painting details on the SSRS layout.</li>
+          </ol>
+        \`
+      }
+    };
+
+    function showEMStep(stepKey, elem) {
+      if (elem) {
+        document.querySelectorAll('#slide3 .flow-step').forEach(step => step.classList.remove('active'));
+        elem.classList.add('active');
+      }
+      
+      const detailsBox = document.getElementById('em-details');
+      // Add update animation class
+      detailsBox.classList.remove('updating');
+      void detailsBox.offsetWidth; // Trigger reflow
+      detailsBox.classList.add('updating');
+      
+      detailsBox.innerHTML = \`<strong>\${emDetails[stepKey].title}</strong>\${emDetails[stepKey].desc}\`;
+    }
+
+    // Slide 5: Forge Interactive Detail Descriptions
+    const forgeUIdetails = {
+      folder: {
+        title: "Step 00: Local Folder Configuration [1-Time Setup]",
+        sub1: "Local Configuration Settings Mockup",
+        what: \`
+          <div style="background: var(--surface); border: 1.5px solid var(--line); border-radius: 8px; padding: 15px; margin-top: 5px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--line); padding-bottom: 8px; margin-bottom: 12px;">
+              <strong style="color: var(--navy); font-size: 13px;">Folder & GSTIN Settings</strong>
+              <button class="guide-link-btn" onclick="showForgeDetails('guide', null)" style="background: none; border: none; color: var(--ok-deep); font-weight: bold; cursor: pointer; font-size: 11px; text-decoration: underline; padding: 0;">📖 View User Guide</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div>
+                <label style="font-size: 9.5px; color: var(--muted); display: block; margin-bottom: 3px; font-weight: 600;">LOCAL DIRECTORY BACKUP PATH</label>
+                <input type="text" value="C:\\\\LocalStorage\\\\E-INVOCE\\\\output_backup" readonly style="width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; font-family: var(--font-mono); background: var(--panel); color: var(--ink-2); box-sizing: border-box;">
+              </div>
+              <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 10px;">
+                <div>
+                  <label style="font-size: 9.5px; color: var(--muted); display: block; margin-bottom: 3px; font-weight: 600;">LEGAL ENTITY GSTIN</label>
+                  <input type="text" value="29AAFCH8563R1Z5" readonly style="width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; font-family: var(--font-mono); background: var(--panel); color: var(--ink-2); box-sizing: border-box;">
+                </div>
+                <div>
+                  <label style="font-size: 9.5px; color: var(--muted); display: block; margin-bottom: 3px; font-weight: 600;">SUPPLY TYPE</label>
+                  <select disabled style="width: 100%; padding: 5px; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; background: var(--panel); color: var(--ink-2); height: 28px; box-sizing: border-box;">
+                    <option>Standard B2B</option>
+                    <option selected>SEZWOP (0 Tax)</option>
+                    <option>EXPWOP (0 Tax)</option>
+                  </select>
+                </div>
+              </div>
+              <button class="mock-btn" style="background: var(--ok); color: white; border: none; padding: 8px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 11.5px; margin-top: 5px; width: 100%; transition: background 0.2s;" onclick="alert('Mock Settings Saved in LocalStorage!')">Save Settings</button>
+            </div>
+          </div>
+        \`,
+        how: "Using the File System Access API (window.showDirectoryPicker), the browser obtains a secure persistent directory handle to write files directly to the local folder. The path string is cached in localStorage so the user does not need to reconfigure it on page reloads."
+      },
+      guide: {
+        title: "e-Invoice Forge App User Guide",
+        sub1: "Step-by-Step Operations Flow",
+        sub2: "Additional Information & Actions",
+        what: \`
+          <div style="max-height: 250px; overflow-y: auto; padding-right: 5px; font-size: 11.5px; line-height: 1.45;">
+            <p style="margin-bottom: 10px; color: var(--ink-2);">Follow this simple process to parse, validate, and stamp invoices client-side:</p>
+            <ol style="padding-left: 15px; display: flex; flex-direction: column; gap: 8px; color: var(--ink-2); margin-top: 5px;">
+              <li><strong>1-Time Setup:</strong> Click <em>Step 00</em>, enter your local backup directory path, and click <strong>Save Settings</strong>.</li>
+              <li><strong>Load PDF:</strong> Drag and drop your standard D365 Sales Invoice PDF onto the dropzone (Step 01).</li>
+              <li><strong>Review & Edit:</strong> The app parses billing tables instantly. Check validation gates (Step 02) and correct any address lengths or 0.01 rounding errors in the grid.</li>
+              <li><strong>Export JSON:</strong> Click <strong>Download JSON</strong> (Step 03) to save the schema-compliant upload payload.</li>
+              <li><strong>IRP Upload:</strong> Log into the official government IRP portal, upload the JSON, and copy the approved response text.</li>
+              <li><strong>Stamp PDF:</strong> Paste the IRP response into the stamping tab (Step 04) to write the IRN and QR code directly onto your original invoice PDF.</li>
+            </ol>
+          </div>
+        \`,
+        how: \`
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; padding-top: 5px;">
+            <span style="font-size: 11px; color: var(--muted);">Need help? Contact the support team.</span>
+            <button class="mock-btn" style="padding: 5px 12px; font-size: 11px; background: var(--navy); color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="showForgeDetails('folder', document.querySelector('.mock-forge-ui .mock-card'))">← Back to Settings</button>
+          </div>
+        \`
+      },
+      drop: {
+        title: "Step 01: Drag & Drop Invoice PDF",
+        what: "The Finance Team drags the standard PDF invoice generated by Dynamics 365 and drops it onto the application dropzone.",
+        how: "Mozilla's pdf.js engine parses the PDF file inside the browser. It reads text strings and organizes them into columns (Seller, Buyer, Consignee, and Metadata) based on coordinate mapping, extracting fields in under 2 seconds."
+      },
+      validation: {
+        title: "Step 02: Real-time GST Validation Gate",
+        what: "Validates all extracted parameters against the official Indian government GST e-invoice rules.",
+        how: "Instantly checks that: (1) GSTIN numbers match the standard regex; (2) HSN codes contain at least 6 digits; (3) CGST + SGST are calculated for intra-state and IGST for inter-state; (4) SEZWOP and EXPWOP supply types bypass standard tax validation rules to allow zero tax values."
+      },
+      editor: {
+        title: "On-Screen Interactive Table Editor",
+        what: "An editable grid allowing the Finance Team to check line items, quantities, HSNs, and prices.",
+        how: "Allows the Finance Team to directly correct rounding mismatches (where D365 ledgers differ from IRP calculations by 0.01 paise) or trim long addresses to meet the 100-character schema limit, preventing API submission rejections."
+      },
+      export: {
+        title: "Step 03: IRP Schema JSON Export",
+        what: "Exports the final verified transaction details into a schema-compliant JSON file.",
+        how: "Compiles data into a structured schema matching the government's official schema v1.1. Enables batch compilation, letting users compile multiple invoice PDFs into a single bulk JSON file."
+      },
+      stamping: {
+        title: "Step 04: IRN & QR Code PDF Stamping",
+        what: "Stamps the cryptographic e-invoice QR code and the 64-character Invoice Reference Number (IRN) directly onto the original invoice PDF.",
+        how: "The user pastes the signed response from the e-invoice portal. The pdf-lib library reads the original uploaded PDF from browser memory, paints the QR code and IRN at the predefined coordinates, and saves the stamped copy to the output folder."
+      }
+    };
+
+    function showForgeDetails(key, elem) {
+      document.querySelectorAll('.mock-forge-ui .mock-card').forEach(c => c.classList.remove('active'));
+      if (elem) {
+        elem.classList.add('active');
+      }
+      
+      const pane = document.getElementById('forge-details-pane');
+      const data = forgeUIdetails[key];
+      
+      // Add update animation class
+      pane.classList.remove('updating');
+      void pane.offsetWidth; // Trigger reflow
+      pane.classList.add('updating');
+      
+      const sub1 = data.sub1 || "What to Configure / Add";
+      const sub2 = data.sub2 || "How It Works Behind the Scenes";
+      
+      pane.innerHTML = \`
+        <h3>\${data.title}</h3>
+        <h4>\${sub1}</h4>
+        <div style="margin-bottom: 10px;">\${data.what}</div>
+        <h4>\${sub2}</h4>
+        <div>\${data.how}</div>
+      \`;
+    }
+
+    // Hash-based direct slide routing
+    function parseHash() {
+      const hash = window.location.hash;
+      if (hash.startsWith('#slide')) {
+        const num = parseInt(hash.replace('#slide', ''), 10);
+        if (!isNaN(num) && num >= 1 && num <= slides.length) {
+          currentSlide = num - 1;
+        }
+      }
+    }
+
+    // Initialize slide deck state
+    parseHash();
+    updateNav();
+
+    window.addEventListener('hashchange', () => {
+      parseHash();
+      updateNav();
+    });
+  <\/script>
+</body>
+</html>
+`;
 </script>
 </body>
 </html>
