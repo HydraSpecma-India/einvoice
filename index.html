@@ -778,21 +778,6 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
         <div class="hint" style="margin-top:8px">Needs the original PDF loaded in Source (step 01). For image sources, load the PDF here too.</div>
       </div>
     </div>
-    <div class="card" style="margin-top:16px" id="step09Card">
-      <div class="hd"><span class="ix">09</span><h2>Generate invoice PDF</h2><span style="margin-left:8px;color:var(--gold);font-size:12px;letter-spacing:.08em;text-transform:uppercase">HSIN template</span></div>
-      <div class="bd">
-        <div class="hint">Rebuilds the invoice in the HydraSpecma layout from the fields above — all copies in <strong>one PDF</strong>. IRN + QR are embedded automatically if a signed response is loaded in step 08.</div>
-        <div class="posrow">
-          <label style="text-transform:none">Copies</label>
-          <label style="text-transform:none"><input type="checkbox" class="cpchk" value="Original" checked> Original</label>
-          <label style="text-transform:none"><input type="checkbox" class="cpchk" value="Duplicate" checked> Duplicate</label>
-          <label style="text-transform:none"><input type="checkbox" class="cpchk" value="Triplicate" checked> Triplicate</label>
-          <button class="btn sm gold" id="btnGenPdf">Generate invoice PDF</button>
-        </div>
-        <div class="status" id="genStatus"></div>
-        <div class="hint" style="margin-top:8px">Not a substitute for the IRP-signed copy — generate <em>after</em> stamping the IRN if you want the QR on it. Verify every figure first.</div>
-      </div>
-    </div>
   </div>
 </main>
 
@@ -991,7 +976,6 @@ footer.note{max-width:1320px;margin:8px auto 40px;padding:0 20px;color:var(--fai
       <div class="status" id="admStatus"></div>
       <div class="admfoot">
         <button class="btn sm gold" id="admSave">Apply</button>
-        <button class="btn sm" id="admPreview">Apply &amp; preview PDF</button>
         <span style="flex:1"></span>
         <button class="btn sm line" id="admExportCfg">Export config</button>
         <button class="btn sm line" id="admImportCfg">Import config</button>
@@ -1260,7 +1244,6 @@ function build(){
 
 function handleZeroTaxWorkflow(isZeroTax) {
   const step08 = $('step08Card');
-  const step09 = $('step09Card');
   const step10 = $('portalCard');
   
   /* Step 08 (stamping) is ALWAYS available — users need to stamp QR+IRN onto the PDF */
@@ -1271,22 +1254,6 @@ function handleZeroTaxWorkflow(isZeroTax) {
   }
 
   if (isZeroTax) {
-    if (step09) {
-      step09.classList.add('locked-section');
-      let notice = step09.querySelector('.zero-tax-notice');
-      if (!notice) {
-        notice = document.createElement('div');
-        notice.className = 'zero-tax-notice';
-        notice.style.background = 'var(--bad-tint)';
-        notice.style.color = 'var(--bad)';
-        notice.style.padding = '8px 12px';
-        notice.style.fontSize = '12px';
-        notice.style.fontWeight = 'bold';
-        notice.style.borderBottom = '1px solid var(--line)';
-        notice.textContent = '✕ PDF generation disabled for SEZWOP / EXPWOP (JSON download only)';
-        step09.insertBefore(notice, step09.firstChild);
-      }
-    }
     if (step10) {
       step10.classList.add('locked-section');
       let notice = step10.querySelector('.zero-tax-notice');
@@ -1304,11 +1271,6 @@ function handleZeroTaxWorkflow(isZeroTax) {
       }
     }
   } else {
-    if (step09) {
-      step09.classList.remove('locked-section');
-      const notice = step09.querySelector('.zero-tax-notice');
-      if (notice) notice.remove();
-    }
     if (step10) {
       step10.classList.remove('locked-section');
       const notice = step10.querySelector('.zero-tax-notice');
@@ -1961,15 +1923,15 @@ $('btnStamp').onclick=async()=>{
       
       if (isTemplate) {
         const irnY = height - 456.32;
-        page.drawText('IRN', {x: 31.18, y: irnY, size: 7.9, font: helvBold, color: rgb(0.08,0.09,0.10)});
-        page.drawText(STATE.signed.irn, {x: 58.00, y: irnY, size: 5.5, font: font, color: rgb(0.08,0.09,0.10)});
+        page.drawText('IRN', {x: 31.18, y: irnY, size: 8.5, font: helvBold, color: rgb(0,0,0)});
+        page.drawText(STATE.signed.irn, {x: 58.00, y: irnY, size: 7.5, font: helvBold, color: rgb(0,0,0)});
         
-        page.drawText('Ack No: ' + STATE.signed.ackNo, {x: qx, y: qy - 12, size: 6.5, font: helv, color: rgb(0.08,0.09,0.10)});
-        page.drawText('Ack Date: ' + (STATE.signed.ackDt || ''), {x: qx, y: qy - 20, size: 6.5, font: helv, color: rgb(0.08,0.09,0.10)});
+        page.drawText('Ack No: ' + STATE.signed.ackNo, {x: qx, y: qy - 12, size: 7.5, font: helvBold, color: rgb(0,0,0)});
+        page.drawText('Ack Date: ' + (STATE.signed.ackDt || ''), {x: qx, y: qy - 22, size: 7.5, font: helvBold, color: rgb(0,0,0)});
       } else {
         const ty=(pos[0]==='t')? qy-12 : qy+qs+4;
-        page.drawText('IRN: '+STATE.signed.irn,{x:m,y:Math.max(8,ty),size:6.5,font,color:rgb(0.08,0.09,0.10),maxWidth:width-2*m});
-        page.drawText('Ack: '+STATE.signed.ackNo+'  '+(STATE.signed.ackDt||''),{x:m,y:Math.max(2,ty-10),size:6.5,font,color:rgb(0.08,0.09,0.10)});
+        page.drawText('IRN: '+STATE.signed.irn,{x:m,y:Math.max(8,ty),size:7.5,font:helvBold,color:rgb(0,0,0),maxWidth:width-2*m});
+        page.drawText('Ack: '+STATE.signed.ackNo+'  '+(STATE.signed.ackDt||''),{x:m,y:Math.max(2,ty-12),size:7.5,font:helvBold,color:rgb(0,0,0)});
       }
     });
     const out=await doc.save();
@@ -2362,52 +2324,6 @@ function drawInvoice(doc,obj,copyLabel,signed,qrUrl,logo,meta){
   doc.text('Page 1 of 1', R, 575.93, {align: 'right'});
 }
 
-$('btnGenPdf').onclick=async()=>{
-  if(!window.jspdf||!window.jspdf.jsPDF){ setStatus($('genStatus'),'bad','PDF engine (jsPDF) not loaded — check your connection to cdnjs.'); return; }
-  if(!ensureFolderConfigured('genStatus'))return;
-  const copies=[...document.querySelectorAll('.cpchk:checked')].map(c=>c.value);
-  if(!copies.length){ setStatus($('genStatus'),'bad','Select at least one copy.'); return; }
-  setStatus($('genStatus'),'work','Building invoice PDF…',true);
-  try{
-    const obj=buildObject();
-    obj.ItemList.forEach((it,i)=>{ const s=STATE.items[i]||{}; it._itemNo=s.itemNo||''; it._external=s.external||''; });
-    const qrUrl=(TPL.showQr&&STATE.signed)?await qrDataUrl(STATE.signed.qr):null;
-    const logo=await loadLogo();
-    const { jsPDF }=window.jspdf;
-    const doc=new jsPDF({unit:'pt',format:'a4',orientation:(TPL.orientation==='portrait'?'portrait':'landscape')});
-    if(typeof doc.autoTable!=='function'){ setStatus($('genStatus'),'bad','Table plugin not loaded.'); return; }
-    copies.forEach((c,i)=>{ if(i)doc.addPage(); drawInvoice(doc,obj,c,STATE.signed,qrUrl,logo,STATE.meta); });
-    
-    const filename=(val('docNo')||'invoice').replace(/[^A-Za-z0-9._-]+/g,'_')+(STATE.signed?'_IRN':'')+'.pdf';
-    if (localInboxHandle) {
-      try {
-        const arrayBuffer = doc.output('arraybuffer');
-        const fileHandle = await localInboxHandle.getFileHandle(filename, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(new Uint8Array(arrayBuffer));
-        await writable.close();
-      } catch(err) {
-        setStatus($('genStatus'), 'bad', 'Failed to save to Inbox folder: ' + err.message);
-        return;
-      }
-    }
-    doc.save(filename);
-    if (STATE.signed) {
-      addTransactionToHistory(
-        obj.DocDtls.No,
-        obj.DocDtls.Dt,
-        STATE.signed.irn,
-        STATE.signed.ackNo,
-        STATE.signed.ackDt,
-        obj.BuyerDtls.Gstin,
-        obj.ValDtls.TotInvVal
-      );
-    }
-    let note=copies.length+'-copy '+(TPL.orientation==='portrait'?'portrait':'landscape')+' invoice generated'+(STATE.signed?' with IRN + QR.':'.');
-    if(!TPL.logoData && TPL.logoUrl && !logo) note+=' Logo URL blocked (CORS) — upload your logo in Admin to embed it.';
-    setStatus($('genStatus'),'ok',note);
-  }catch(e){ setStatus($('genStatus'),'bad','Generation failed: '+e.message); }
-};
 
 /* ============================ BATCH — many invoices -> one JSON ============================ */
 function isoFromDdmmyyyy(s){ const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s||''); return m?`${m[3]}-${m[2]}-${m[1]}`:''; }
@@ -2727,8 +2643,7 @@ function admApply(){
   $('admLogoPick').onclick=()=>$('admLogoFile').click();
   $('admLogoFile').onchange=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ TPL.logoData=r.result; const pv=$('admLogoPv'); pv.src=r.result; pv.style.display=''; setStatus($('admStatus'),'ok','Logo loaded from file — embeds reliably (overrides URL).'); }; r.readAsDataURL(f); e.target.value=''; };
   $('admLogoClear').onclick=()=>{ TPL.logoData=''; admPopulate(); setStatus($('admStatus'),'ok','Cleared uploaded logo — will use the URL.'); };
-  $('admSave').onclick=()=>{ admApply(); build(); setStatus($('admStatus'),'ok','Template applied. Use “Generate invoice PDF” to produce it.'); };
-  $('admPreview').onclick=()=>{ admApply(); M.style.display='none'; $('btnGenPdf').click(); };
+  $('admSave').onclick=()=>{ admApply(); build(); setStatus($('admStatus'),'ok','Template applied.'); };
   $('admReset').onclick=()=>{ TPL=JSON.parse(JSON.stringify(TPL_DEFAULTS)); admPopulate(); setStatus($('admStatus'),'ok','Reset to defaults (click Apply / Export to keep).'); };
   $('admExportCfg').onclick=()=>{ admApply(); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(TPL,null,2)],{type:'application/json'})); a.download='einvoice_template_config.json'; a.click(); setStatus($('admStatus'),'ok','Config exported.'); };
   $('admImportCfg').onclick=()=>$('admCfgFile').click();
